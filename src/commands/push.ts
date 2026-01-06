@@ -84,7 +84,45 @@ export async function pushCommand(options: PushOptions): Promise<void> {
       }
     }
 
-    // Create new pages
+    // Create new pages - first check if we need to create any workspaces
+    if (newPages.length > 0) {
+      // Get all unique workspace slugs from new pages
+      const newWorkspaceSlugs = new Set<string>();
+      for (const page of newPages) {
+        const workspaceSlug = page.meta.workspace_slug || basename(dirname(page.path));
+        newWorkspaceSlugs.add(workspaceSlug);
+      }
+
+      // Fetch existing workspaces
+      const existingWorkspaces = await api.getWorkspaces();
+      const existingSlugs = new Set(
+        existingWorkspaces.flatMap((ws) => [
+          ws.slug,
+          ws.name.toLowerCase().replace(/\s+/g, "-"),
+        ].filter(Boolean))
+      );
+
+      // Create any missing workspaces
+      for (const slug of newWorkspaceSlugs) {
+        if (!existingSlugs.has(slug)) {
+          try {
+            // Convert slug to readable name
+            const workspaceName = slug
+              .split("-")
+              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(" ");
+
+            console.log(chalk.blue(`  Creating workspace: ${workspaceName}`));
+            const newWs = await api.createWorkspace(workspaceName);
+            existingSlugs.add(newWs.slug);
+          } catch (error) {
+            console.log(chalk.red(`  Failed to create workspace: ${slug}`));
+            console.log(chalk.gray(`    ${error instanceof Error ? error.message : "Unknown error"}`));
+          }
+        }
+      }
+    }
+
     for (const page of newPages) {
       try {
         // Extract workspace slug from the file path
