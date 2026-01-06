@@ -6,6 +6,9 @@ import { pullCommand } from "./commands/pull.js";
 import { pushCommand } from "./commands/push.js";
 import { searchCommand } from "./commands/search.js";
 import { statusCommand } from "./commands/status.js";
+import { configCommand } from "./commands/config.js";
+import { newCommand } from "./commands/new.js";
+import { addCommand } from "./commands/add.js";
 
 const program = new Command();
 
@@ -56,5 +59,28 @@ program
   .description("Search through local pages")
   .option("-w, --workspace <slug>", "Search only in specific workspace")
   .action(searchCommand);
+
+// Config
+program
+  .command("config")
+  .description("View or update CLI configuration")
+  .option("--api-url <url>", "Set API URL (e.g., http://localhost:3001)")
+  .option("--pages-dir <path>", "Set local pages directory")
+  .action(configCommand);
+
+// Create commands
+program
+  .command("new <title>")
+  .description("Create a new page")
+  .option("-w, --workspace <slug>", "Create in specific workspace")
+  .option("-c, --content <text>", "Initial content for the page")
+  .option("--from-file <path>", "Import content from a file")
+  .option("--from-clipboard", "Import content from clipboard")
+  .action(newCommand);
+
+program
+  .command("add <text>")
+  .description("Quick capture - create a note from text")
+  .action(addCommand);
 
 program.parse();

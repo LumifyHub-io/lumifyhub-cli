@@ -111,6 +111,48 @@ class ApiClient {
     const data: ApiResponse<Record<string, string>> = await response.json();
     return data.data;
   }
+
+  async createPage(
+    title: string,
+    content: string,
+    workspaceSlug: string,
+    parentId?: string
+  ): Promise<Page> {
+    const body: Record<string, string> = { title, content, workspace_slug: workspaceSlug };
+    if (parentId) {
+      body.parent_id = parentId;
+    }
+
+    const response = await fetch(`${this.getBaseUrl()}/pages`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || `Failed to create page: ${response.statusText}`);
+    }
+
+    const data: ApiResponse<Page> = await response.json();
+    return data.data;
+  }
+
+  async createWorkspace(name: string): Promise<Workspace & { existing?: boolean }> {
+    const response = await fetch(`${this.getBaseUrl()}/workspaces`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify({ name }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || `Failed to create workspace: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return { ...data.data, existing: data.existing };
+  }
 }
 
 export const api = new ApiClient();

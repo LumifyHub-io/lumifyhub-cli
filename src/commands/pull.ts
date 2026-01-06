@@ -3,6 +3,7 @@ import ora from "ora";
 import { isAuthenticated } from "../lib/config.js";
 import { api } from "../lib/api.js";
 import { savePage, readLocalPage, getPagePath, hashContent } from "../lib/files.js";
+import { initGitIfNeeded, commitChanges } from "../lib/git.js";
 
 interface PullOptions {
   workspace?: string;
@@ -40,9 +41,9 @@ export async function pullCommand(options: PullOptions): Promise<void> {
           continue;
         }
 
-        // Check if remote is same as what we have
-        const remoteHash = hashContent(page.content);
-        if (remoteHash === local.meta.remote_hash) {
+        // Check if remote has been updated since our last pull using updated_at
+        // (Content hashing is unreliable due to non-deterministic markdown conversion)
+        if (local.meta.updated_at === page.updated_at) {
           skipped++;
           continue;
         }
@@ -56,6 +57,14 @@ export async function pullCommand(options: PullOptions): Promise<void> {
     console.log(chalk.green(`  Pulled: ${pulled}`));
     if (skipped > 0) console.log(chalk.gray(`  Unchanged: ${skipped}`));
     if (conflicts > 0) console.log(chalk.yellow(`  Conflicts: ${conflicts}`));
+
+    // Auto-commit changes if git is available
+    if (pulled > 0) {
+      initGitIfNeeded();
+      if (commitChanges("Pull from LumifyHub")) {
+        console.log(chalk.gray("  Committed to local git"));
+      }
+    }
   } catch (error) {
     spinner.fail("Failed to pull pages");
     console.error(chalk.red(error instanceof Error ? error.message : "Unknown error"));
