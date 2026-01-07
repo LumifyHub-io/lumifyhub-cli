@@ -9,6 +9,7 @@ import { statusCommand } from "./commands/status.js";
 import { configCommand } from "./commands/config.js";
 import { newCommand } from "./commands/new.js";
 import { addCommand } from "./commands/add.js";
+import { workspacesCommand } from "./commands/workspaces.js";
 
 const program = new Command();
 
@@ -82,5 +83,11 @@ program
   .command("add <text>")
   .description("Quick capture - create a note from text")
   .action(addCommand);
+
+program
+  .command("workspaces")
+  .alias("ws")
+  .description("List your workspaces")
+  .action(workspacesCommand);
 
 program.parse();
