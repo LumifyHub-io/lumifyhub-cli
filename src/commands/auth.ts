@@ -28,8 +28,8 @@ export async function loginCommand(): Promise<void> {
     }
   }
 
-  console.log(chalk.blue("\nTo authenticate, you need an API token from LumifyHub."));
-  console.log(chalk.gray("Get your token at: https://lumifyhub.com/settings/api\n"));
+  console.log(chalk.blue("\nTo authenticate, you need a CLI token from LumifyHub."));
+  console.log(chalk.gray("Go to lumifyhub.io/p → click your avatar → Account Settings → CLI tab\n"));
 
   const token = await prompt("Enter your API token: ");
 

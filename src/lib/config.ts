@@ -3,7 +3,7 @@ import { homedir } from "os";
 import { join } from "path";
 import type { Config } from "../types/index.js";
 
-const DEFAULT_API_URL = "https://lumifyhub.com";
+const DEFAULT_API_URL = "https://lumifyhub.io";
 const DEFAULT_PAGES_DIR = join(homedir(), ".lumifyhub", "pages");
 
 const store = new Conf<Config>({

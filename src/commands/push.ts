@@ -1,8 +1,10 @@
 import chalk from "chalk";
 import ora from "ora";
+import { basename, dirname } from "path";
 import { isAuthenticated } from "../lib/config.js";
 import { api } from "../lib/api.js";
 import { getAllLocalPages, hashContent, savePage } from "../lib/files.js";
+import { initGitIfNeeded, commitChanges } from "../lib/git.js";
 
 interface PushOptions {
   workspace?: string;
@@ -20,35 +22,45 @@ export async function pushCommand(options: PushOptions): Promise<void> {
   try {
     const localPages = getAllLocalPages();
 
+    // Filter by workspace if specified
+    let filteredPages = localPages;
     if (options.workspace) {
-      const filtered = localPages.filter(
+      filteredPages = localPages.filter(
         (p) => p.meta.workspace_slug === options.workspace
       );
-      if (filtered.length === 0) {
+      if (filteredPages.length === 0) {
         spinner.info(`No pages found for workspace: ${options.workspace}`);
         return;
       }
     }
 
-    // Find pages with local modifications
-    const modifiedPages = localPages.filter((page) => {
-      if (options.workspace && page.meta.workspace_slug !== options.workspace) {
-        return false;
-      }
+    // Separate into modified (existing) and new pages
+    const modifiedPages = filteredPages.filter((page) => {
+      // Has an ID means it exists on remote
+      if (!page.meta.id) return false;
       const currentHash = hashContent(page.content);
       return currentHash !== page.meta.local_hash;
     });
 
-    if (modifiedPages.length === 0) {
+    const newPages = filteredPages.filter((page) => {
+      // No ID or ID is empty means it's a new page
+      return !page.meta.id;
+    });
+
+    const totalChanges = modifiedPages.length + newPages.length;
+
+    if (totalChanges === 0) {
       spinner.info("No local changes to push");
       return;
     }
 
-    spinner.text = `Pushing ${modifiedPages.length} modified pages...`;
+    spinner.text = `Pushing ${totalChanges} pages (${modifiedPages.length} modified, ${newPages.length} new)...`;
 
     let pushed = 0;
+    let created = 0;
     let failed = 0;
 
+    // Push modified pages
     for (const page of modifiedPages) {
       try {
         const updatedPage = await api.updatePage(
@@ -64,7 +76,7 @@ export async function pushCommand(options: PushOptions): Promise<void> {
         });
 
         pushed++;
-        console.log(chalk.green(`  Pushed: ${page.meta.workspace_slug}/${page.meta.slug}`));
+        console.log(chalk.green(`  Updated: ${page.meta.workspace_slug}/${page.meta.slug}`));
       } catch (error) {
         failed++;
         console.log(chalk.red(`  Failed: ${page.meta.workspace_slug}/${page.meta.slug}`));
@@ -72,10 +84,58 @@ export async function pushCommand(options: PushOptions): Promise<void> {
       }
     }
 
+    // Create new pages
+    for (const page of newPages) {
+      try {
+        // Extract workspace slug from the file path
+        const workspaceSlug = page.meta.workspace_slug || basename(dirname(page.path));
+
+        // Use title from frontmatter or derive from filename
+        const title = page.meta.title || basename(page.path, ".md").replace(/-/g, " ");
+
+        const createdPage = await api.createPage(
+          title,
+          page.content,
+          workspaceSlug
+        );
+
+        // Save with the new ID from server
+        savePage({
+          ...createdPage,
+          workspace_slug: workspaceSlug,
+        });
+
+        created++;
+        console.log(chalk.cyan(`  Created: ${workspaceSlug}/${createdPage.slug}`));
+      } catch (error) {
+        failed++;
+        const displayPath = page.meta.workspace_slug
+          ? `${page.meta.workspace_slug}/${page.meta.slug || basename(page.path)}`
+          : page.path;
+        console.log(chalk.red(`  Failed: ${displayPath}`));
+        console.log(chalk.gray(`    ${error instanceof Error ? error.message : "Unknown error"}`));
+      }
+    }
+
     if (failed === 0) {
-      spinner.succeed(`Push complete: ${pushed} pages updated`);
+      const parts = [];
+      if (pushed > 0) parts.push(`${pushed} updated`);
+      if (created > 0) parts.push(`${created} created`);
+      spinner.succeed(`Push complete: ${parts.join(", ")}`);
     } else {
-      spinner.warn(`Push complete: ${pushed} succeeded, ${failed} failed`);
+      const parts = [];
+      if (pushed > 0) parts.push(`${pushed} updated`);
+      if (created > 0) parts.push(`${created} created`);
+      parts.push(`${failed} failed`);
+      spinner.warn(`Push complete: ${parts.join(", ")}`);
+    }
+
+    // Auto-commit changes if git is available
+    if (pushed > 0 || created > 0) {
+      initGitIfNeeded();
+      if (commitChanges("Push to LumifyHub")) {
+        console.log(chalk.gray("  Committed to local git"));
+      }
     }
   } catch (error) {
     spinner.fail("Failed to push pages");

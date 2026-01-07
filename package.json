@@ -1,25 +1,44 @@
 {
   "name": "lumifyhub-cli",
-  "version": "0.1.0",
-  "description": "CLI tool for LumifyHub - sync and manage your pages locally",
+  "version": "0.1.2",
+  "description": "CLI tool for LumifyHub - sync and manage your pages locally as markdown files",
   "type": "module",
   "bin": {
-    "lh": "./dist/index.js"
+    "lh": "dist/index.js",
+    "lumifyhub": "dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts",
     "dev": "tsup src/index.ts --format esm --watch",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "lumifyhub",
     "cli",
     "notes",
-    "sync"
+    "sync",
+    "markdown",
+    "workspace",
+    "productivity"
   ],
-  "author": "",
+  "author": "LumifyHub",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lumifyhub/lumifyhub-cli"
+  },
+  "homepage": "https://lumifyhub.io/cli",
+  "bugs": {
+    "url": "https://github.com/lumifyhub/lumifyhub-cli/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
