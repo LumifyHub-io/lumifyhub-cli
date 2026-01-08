@@ -4,7 +4,7 @@ import { isAuthenticated } from "../lib/config.js";
 import { api } from "../lib/api.js";
 import { savePage } from "../lib/files.js";
 import { initGitIfNeeded, commitChanges } from "../lib/git.js";
-import { getCliConfig, setCliConfig } from "../lib/cli-config.js";
+import { getCliConfig, setCliConfig, clearCliConfig } from "../lib/cli-config.js";
 
 const CLI_PAGES_TITLE = "CLI Pages";
 const CLI_NOTES_WORKSPACE = "CLI Notes";
@@ -13,13 +13,13 @@ const QUICK_NOTES_TITLE = "Quick Notes";
 /**
  * Get or create the destination for CLI pages.
  */
-async function getCliDestination(): Promise<{
+async function getCliDestination(skipCache = false): Promise<{
   workspaceSlug: string;
   parentId?: string;
 }> {
   const cliConfig = getCliConfig();
 
-  if (cliConfig.destinationWorkspace) {
+  if (!skipCache && cliConfig.destinationWorkspace) {
     return {
       workspaceSlug: cliConfig.destinationWorkspace,
       parentId: cliConfig.destinationParentId,
@@ -96,13 +96,26 @@ export async function addCommand(text: string): Promise<void> {
   const spinner = ora("Adding note...").start();
 
   try {
-    const dest = await getCliDestination();
+    let dest = await getCliDestination();
 
     // Generate a title from the first few words
     const words = text.split(/\s+/).slice(0, 5).join(" ");
     const title = words.length > 30 ? words.slice(0, 30) + "..." : words;
 
-    const page = await api.createPage(title, text, dest.workspaceSlug, dest.parentId);
+    let page;
+    try {
+      page = await api.createPage(title, text, dest.workspaceSlug, dest.parentId);
+    } catch (error) {
+      // If workspace not found, clear cache and retry
+      if (error instanceof Error && error.message.includes("Workspace not found")) {
+        clearCliConfig();
+        dest = await getCliDestination(true);
+        page = await api.createPage(title, text, dest.workspaceSlug, dest.parentId);
+      } else {
+        throw error;
+      }
+    }
+
     savePage({ ...page, workspace_slug: dest.workspaceSlug });
 
     spinner.succeed(chalk.green("Added!"));
