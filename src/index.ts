@@ -70,6 +70,25 @@ program
   .option("--pages-dir <path>", "Set local pages directory")
   .action(configCommand);
 
+// Hidden dev command - toggle local dev environment
+program
+  .command("dev", { hidden: true })
+  .description("Toggle local dev environment")
+  .action(async () => {
+    const { getConfig, setApiUrl } = await import("./lib/config.js");
+    const chalk = (await import("chalk")).default;
+    const config = getConfig();
+    const isLocal = config.apiUrl.includes("localhost");
+
+    if (isLocal) {
+      setApiUrl("https://www.lumifyhub.io");
+      console.log(chalk.green("Switched to production: https://www.lumifyhub.io"));
+    } else {
+      setApiUrl("http://localhost:3001");
+      console.log(chalk.green("Switched to local dev: http://localhost:3001"));
+    }
+  });
+
 // Create commands
 program
   .command("new <title>")
