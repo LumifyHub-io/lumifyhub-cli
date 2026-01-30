@@ -569,8 +569,15 @@ export function apiRowToLocal(
   return row;
 }
 
+interface SelectOption {
+  id: string;
+  name: string;
+  color: string;
+}
+
 /**
  * Convert local DatabaseRow to API format for updates
+ * Handles converting select option names back to IDs
  */
 export function localRowToApi(
   row: DatabaseRow,
@@ -587,13 +594,34 @@ export function localRowToApi(
     const value = row[prop.property_id];
     if (value === null || value === undefined || value === "") {
       apiProperties[prop.property_id] = null;
-    } else {
-      // Try to parse JSON for complex types
-      try {
-        apiProperties[prop.property_id] = JSON.parse(value);
-      } catch {
-        apiProperties[prop.property_id] = value;
-      }
+      continue;
+    }
+
+    // Handle select - convert option name back to ID
+    if (prop.property_type === "select") {
+      const options = (prop.config?.options as SelectOption[]) || [];
+      const option = options.find((o) => o.name === value || o.id === value);
+      apiProperties[prop.property_id] = option?.id || value;
+      continue;
+    }
+
+    // Handle multi-select - convert comma-separated names back to ID array
+    if (prop.property_type === "multi_select") {
+      const options = (prop.config?.options as SelectOption[]) || [];
+      const names = value.split(",").map((n) => n.trim()).filter(Boolean);
+      const ids = names.map((name) => {
+        const option = options.find((o) => o.name === name || o.id === name);
+        return option?.id || name;
+      });
+      apiProperties[prop.property_id] = ids.length > 0 ? ids : null;
+      continue;
+    }
+
+    // Try to parse JSON for other complex types
+    try {
+      apiProperties[prop.property_id] = JSON.parse(value);
+    } catch {
+      apiProperties[prop.property_id] = value;
     }
   }
 

@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import ora from "ora";
+import ora, { type Ora } from "ora";
 import { isAuthenticated } from "../../lib/config.js";
 import { api } from "../../lib/api.js";
 import {
@@ -17,6 +17,129 @@ interface DbPullOptions {
   force?: boolean;
 }
 
+interface DbPullResult {
+  pulled: number;
+  skipped: number;
+  conflicts: number;
+}
+
+/**
+ * Core database pull logic - can be called standalone or as part of main pull
+ */
+export async function pullDatabases(
+  options: DbPullOptions = {},
+  databaseSlug?: string,
+  spinner?: Ora
+): Promise<DbPullResult> {
+  const ownSpinner = !spinner;
+  if (!spinner) {
+    spinner = ora("Fetching databases from LumifyHub...").start();
+  }
+
+  // Fetch database list
+  const databases = await api.getDatabases(options.workspace);
+
+  if (databases.length === 0) {
+    if (ownSpinner) spinner.info("No databases found");
+    return { pulled: 0, skipped: 0, conflicts: 0 };
+  }
+
+  // Filter by slug if specified
+  let databasesToSync = databases;
+  if (databaseSlug) {
+    databasesToSync = databases.filter(
+      (db) => db.slug === databaseSlug || db.slug.startsWith(databaseSlug)
+    );
+    if (databasesToSync.length === 0) {
+      if (ownSpinner) spinner.fail(`Database not found: ${databaseSlug}`);
+      return { pulled: 0, skipped: 0, conflicts: 0 };
+    }
+  }
+
+  let pulled = 0;
+  let skipped = 0;
+  let conflicts = 0;
+
+  for (const dbInfo of databasesToSync) {
+    spinner.text = `Pulling database ${dbInfo.workspace_slug}/${dbInfo.slug}...`;
+
+    // Fetch full database details
+    const database = await api.getDatabase(dbInfo.id);
+
+    // Convert API rows to local format
+    const rows: DatabaseRow[] = database.rows.map((row) =>
+      apiRowToLocal(
+        {
+          id: row._id,
+          title: row._title,
+          data_source_id: row._data_source_id,
+          properties: extractProperties(row, database.properties),
+        },
+        database.properties
+      )
+    );
+
+    // Compute remote hash
+    const remoteSchema = {
+      id: database.id,
+      title: database.title,
+      workspace_id: database.workspace_id,
+      workspace_slug: database.workspace_slug,
+      slug: database.slug,
+      updated_at: database.updated_at,
+      data_sources: database.data_sources,
+      properties: database.properties,
+      local_hash: "",
+      remote_hash: "",
+    };
+    const remoteHash = computeDatabaseHash(remoteSchema, rows);
+
+    // Check local state
+    const local = getLocalDatabase(database.workspace_slug, database.slug);
+
+    if (local && !options.force) {
+      // Check if local has been modified
+      const currentLocalHash = computeDatabaseHash(local.schema, local.rows);
+      const isLocalModified = currentLocalHash !== local.schema.local_hash;
+
+      if (isLocalModified) {
+        conflicts++;
+        console.log(chalk.yellow(`\n  DB Conflict: ${database.workspace_slug}/${database.slug}`));
+        console.log(chalk.gray("    Use --force to overwrite local changes"));
+        continue;
+      }
+
+      // Check if remote has changed since last pull
+      if (local.schema.remote_hash === remoteHash) {
+        skipped++;
+        continue;
+      }
+    }
+
+    // Save database locally
+    saveDatabase(
+      database.workspace_slug,
+      database.slug,
+      {
+        id: database.id,
+        title: database.title,
+        workspace_id: database.workspace_id,
+        workspace_slug: database.workspace_slug,
+        slug: database.slug,
+        updated_at: database.updated_at,
+        data_sources: database.data_sources,
+        properties: database.properties,
+      },
+      rows,
+      remoteHash
+    );
+
+    pulled++;
+  }
+
+  return { pulled, skipped, conflicts };
+}
+
 export async function dbPullCommand(databaseSlug?: string, options: DbPullOptions = {}): Promise<void> {
   if (!isAuthenticated()) {
     console.log(chalk.red("Not logged in. Run 'lh login' first."));
@@ -26,117 +149,15 @@ export async function dbPullCommand(databaseSlug?: string, options: DbPullOption
   const spinner = ora("Fetching databases from LumifyHub...").start();
 
   try {
-    // Fetch database list
-    const databases = await api.getDatabases(options.workspace);
-
-    if (databases.length === 0) {
-      spinner.info("No databases found");
-      return;
-    }
-
-    // Filter by slug if specified
-    let databasesToSync = databases;
-    if (databaseSlug) {
-      databasesToSync = databases.filter(
-        (db) => db.slug === databaseSlug || db.slug.startsWith(databaseSlug)
-      );
-      if (databasesToSync.length === 0) {
-        spinner.fail(`Database not found: ${databaseSlug}`);
-        return;
-      }
-    }
-
-    spinner.text = `Found ${databasesToSync.length} database(s)`;
-
-    let pulled = 0;
-    let skipped = 0;
-    let conflicts = 0;
-
-    for (const dbInfo of databasesToSync) {
-      spinner.text = `Pulling ${dbInfo.workspace_slug}/${dbInfo.slug}...`;
-
-      // Fetch full database details
-      const database = await api.getDatabase(dbInfo.id);
-
-      // Convert API rows to local format
-      const rows: DatabaseRow[] = database.rows.map((row) =>
-        apiRowToLocal(
-          {
-            id: row._id,
-            title: row._title,
-            data_source_id: row._data_source_id,
-            properties: extractProperties(row, database.properties),
-          },
-          database.properties
-        )
-      );
-
-      // Compute remote hash
-      const remoteSchema = {
-        id: database.id,
-        title: database.title,
-        workspace_id: database.workspace_id,
-        workspace_slug: database.workspace_slug,
-        slug: database.slug,
-        updated_at: database.updated_at,
-        data_sources: database.data_sources,
-        properties: database.properties,
-        local_hash: "",
-        remote_hash: "",
-      };
-      const remoteHash = computeDatabaseHash(remoteSchema, rows);
-
-      // Check local state
-      const local = getLocalDatabase(database.workspace_slug, database.slug);
-
-      if (local && !options.force) {
-        // Check if local has been modified
-        const currentLocalHash = computeDatabaseHash(local.schema, local.rows);
-        const isLocalModified = currentLocalHash !== local.schema.local_hash;
-
-        if (isLocalModified) {
-          conflicts++;
-          console.log(chalk.yellow(`\n  Conflict: ${database.workspace_slug}/${database.slug}`));
-          console.log(chalk.gray("    Use --force to overwrite local changes"));
-          continue;
-        }
-
-        // Check if remote has changed since last pull
-        if (local.schema.remote_hash === remoteHash) {
-          skipped++;
-          continue;
-        }
-      }
-
-      // Save database locally
-      saveDatabase(
-        database.workspace_slug,
-        database.slug,
-        {
-          id: database.id,
-          title: database.title,
-          workspace_id: database.workspace_id,
-          workspace_slug: database.workspace_slug,
-          slug: database.slug,
-          updated_at: database.updated_at,
-          data_sources: database.data_sources,
-          properties: database.properties,
-        },
-        rows,
-        remoteHash
-      );
-
-      pulled++;
-      console.log(chalk.green(`  Pulled: ${database.workspace_slug}/${database.slug} (${rows.length} rows)`));
-    }
+    const result = await pullDatabases(options, databaseSlug, spinner);
 
     spinner.succeed("Pull complete");
-    if (pulled > 0) console.log(chalk.green(`  Pulled: ${pulled}`));
-    if (skipped > 0) console.log(chalk.gray(`  Unchanged: ${skipped}`));
-    if (conflicts > 0) console.log(chalk.yellow(`  Conflicts: ${conflicts}`));
+    if (result.pulled > 0) console.log(chalk.green(`  Pulled: ${result.pulled} databases`));
+    if (result.skipped > 0) console.log(chalk.gray(`  Unchanged: ${result.skipped}`));
+    if (result.conflicts > 0) console.log(chalk.yellow(`  Conflicts: ${result.conflicts}`));
 
     // Auto-commit if changes were made
-    if (pulled > 0) {
+    if (result.pulled > 0) {
       initGitIfNeeded();
       if (commitChanges("Pull databases from LumifyHub")) {
         console.log(chalk.gray("  Committed to local git"));

@@ -4,6 +4,7 @@ import { isAuthenticated } from "../lib/config.js";
 import { api } from "../lib/api.js";
 import { savePage, readLocalPage, getPagePath, hashContent } from "../lib/files.js";
 import { initGitIfNeeded, commitChanges } from "../lib/git.js";
+import { pullDatabases } from "./db/index.js";
 
 interface PullOptions {
   workspace?: string;
@@ -16,15 +17,16 @@ export async function pullCommand(options: PullOptions): Promise<void> {
     return;
   }
 
-  const spinner = ora("Fetching pages from LumifyHub...").start();
+  const spinner = ora("Pulling from LumifyHub...").start();
 
   try {
+    // Pull pages
+    spinner.text = "Fetching pages...";
     const pages = await api.getPages(options.workspace);
-    spinner.text = `Found ${pages.length} pages`;
 
-    let pulled = 0;
-    let skipped = 0;
-    let conflicts = 0;
+    let pagesPulled = 0;
+    let pagesSkipped = 0;
+    let pagesConflicts = 0;
 
     for (const page of pages) {
       const pagePath = getPagePath(page.workspace_slug, page.slug);
@@ -35,38 +37,47 @@ export async function pullCommand(options: PullOptions): Promise<void> {
         const isLocalModified = localContentHash !== local.meta.local_hash;
 
         if (isLocalModified) {
-          conflicts++;
-          console.log(chalk.yellow(`\n  Conflict: ${page.workspace_slug}/${page.slug}`));
+          pagesConflicts++;
+          console.log(chalk.yellow(`\n  Page Conflict: ${page.workspace_slug}/${page.slug}`));
           console.log(chalk.gray("    Use --force to overwrite local changes"));
           continue;
         }
 
-        // Check if remote has been updated since our last pull using updated_at
-        // (Content hashing is unreliable due to non-deterministic markdown conversion)
         if (local.meta.updated_at === page.updated_at) {
-          skipped++;
+          pagesSkipped++;
           continue;
         }
       }
 
       savePage(page);
-      pulled++;
+      pagesPulled++;
     }
 
-    spinner.succeed(`Pull complete`);
-    console.log(chalk.green(`  Pulled: ${pulled}`));
-    if (skipped > 0) console.log(chalk.gray(`  Unchanged: ${skipped}`));
-    if (conflicts > 0) console.log(chalk.yellow(`  Conflicts: ${conflicts}`));
+    // Pull databases
+    spinner.text = "Fetching databases...";
+    const dbResult = await pullDatabases(options, undefined, spinner);
+
+    spinner.succeed("Pull complete");
+
+    // Summary
+    const totalPulled = pagesPulled + dbResult.pulled;
+    const totalSkipped = pagesSkipped + dbResult.skipped;
+    const totalConflicts = pagesConflicts + dbResult.conflicts;
+
+    if (pagesPulled > 0) console.log(chalk.green(`  Pages: ${pagesPulled}`));
+    if (dbResult.pulled > 0) console.log(chalk.green(`  Databases: ${dbResult.pulled}`));
+    if (totalSkipped > 0) console.log(chalk.gray(`  Unchanged: ${totalSkipped}`));
+    if (totalConflicts > 0) console.log(chalk.yellow(`  Conflicts: ${totalConflicts}`));
 
     // Auto-commit changes if git is available
-    if (pulled > 0) {
+    if (totalPulled > 0) {
       initGitIfNeeded();
       if (commitChanges("Pull from LumifyHub")) {
         console.log(chalk.gray("  Committed to local git"));
       }
     }
   } catch (error) {
-    spinner.fail("Failed to pull pages");
+    spinner.fail("Failed to pull");
     console.error(chalk.red(error instanceof Error ? error.message : "Unknown error"));
   }
 }
