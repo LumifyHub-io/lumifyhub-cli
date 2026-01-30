@@ -1,5 +1,11 @@
 import { getConfig } from "./config.js";
-import type { Page, Workspace, ApiResponse } from "../types/index.js";
+import type {
+  Page,
+  Workspace,
+  ApiResponse,
+  DatabaseListItem,
+  DatabaseWithDetails,
+} from "../types/index.js";
 
 class ApiClient {
   private getHeaders(): HeadersInit {
@@ -152,6 +158,78 @@ class ApiClient {
 
     const data = await response.json();
     return { ...data.data, existing: data.existing };
+  }
+
+  // Database API methods
+
+  async getDatabases(workspaceSlug?: string): Promise<DatabaseListItem[]> {
+    const url = new URL(`${this.getBaseUrl()}/databases`);
+    if (workspaceSlug) {
+      url.searchParams.set("workspace", workspaceSlug);
+    }
+
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch databases: ${response.statusText}`);
+    }
+
+    const data: ApiResponse<DatabaseListItem[]> = await response.json();
+    return data.data;
+  }
+
+  async getDatabase(databaseId: string): Promise<DatabaseWithDetails> {
+    const response = await fetch(`${this.getBaseUrl()}/databases/${databaseId}`, {
+      method: "GET",
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch database: ${response.statusText}`);
+    }
+
+    const data: ApiResponse<DatabaseWithDetails> = await response.json();
+    return data.data;
+  }
+
+  async batchUpdateRows(
+    databaseId: string,
+    operations: {
+      create: Array<{
+        title: string;
+        data_source_id: string | null;
+        properties: Record<string, unknown>;
+      }>;
+      update: Array<{
+        id: string;
+        title: string;
+        data_source_id: string | null;
+        properties: Record<string, unknown>;
+      }>;
+      delete: string[];
+    }
+  ): Promise<{
+    created: number;
+    updated: number;
+    deleted: number;
+    errors: string[];
+  }> {
+    const response = await fetch(`${this.getBaseUrl()}/databases/${databaseId}/rows/batch`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify(operations),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || `Failed to batch update rows: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.data;
   }
 }
 

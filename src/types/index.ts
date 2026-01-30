@@ -45,3 +45,63 @@ export interface SyncStatus {
   localUpdatedAt?: string;
   remoteUpdatedAt?: string;
 }
+
+// Database sync types
+export interface DatabaseSchema {
+  id: string;
+  title: string;
+  workspace_id: string;
+  workspace_slug: string;
+  slug: string;
+  updated_at: string;
+  local_hash: string;
+  remote_hash: string;
+  data_sources: DataSourceMeta[];
+  properties: PropertyMeta[];
+}
+
+export interface DataSourceMeta {
+  id: string;
+  name: string;
+  sort_order: number;
+}
+
+export interface PropertyMeta {
+  property_id: string;
+  property_name: string;
+  property_type: string;
+  data_source_id: string | null;
+  sort_order: number;
+  config: Record<string, unknown>;
+}
+
+export interface DatabaseRow {
+  _id: string;
+  _title: string;
+  _data_source_id: string | null;
+  [property_id: string]: string | null;
+}
+
+export interface DatabaseListItem {
+  id: string;
+  title: string;
+  slug: string;
+  workspace_id: string;
+  workspace_slug: string;
+  updated_at: string;
+}
+
+export interface DatabaseWithDetails extends DatabaseListItem {
+  data_sources: DataSourceMeta[];
+  properties: PropertyMeta[];
+  rows: DatabaseRow[];
+}
+
+export interface DatabaseSyncStatus {
+  path: string;
+  databaseSlug: string;
+  workspaceSlug: string;
+  status: "synced" | "modified" | "conflict";
+  localHash?: string;
+  remoteHash?: string;
+}

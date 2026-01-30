@@ -10,6 +10,7 @@ import { configCommand } from "./commands/config.js";
 import { newCommand } from "./commands/new.js";
 import { addCommand } from "./commands/add.js";
 import { workspacesCommand } from "./commands/workspaces.js";
+import { dbPullCommand, dbPushCommand, dbStatusCommand, dbListCommand } from "./commands/db/index.js";
 
 const program = new Command();
 
@@ -89,5 +90,35 @@ program
   .alias("ws")
   .description("List your workspaces")
   .action(workspacesCommand);
+
+// Database commands
+const dbCommand = program
+  .command("db")
+  .description("Manage databases locally");
+
+dbCommand
+  .command("pull [database]")
+  .description("Pull databases from LumifyHub to local")
+  .option("-w, --workspace <slug>", "Pull only from specific workspace")
+  .option("-f, --force", "Force overwrite local changes")
+  .action(dbPullCommand);
+
+dbCommand
+  .command("push [database]")
+  .description("Push local database changes to LumifyHub")
+  .option("-w, --workspace <slug>", "Push only from specific workspace")
+  .option("-f, --force", "Force overwrite remote changes")
+  .action(dbPushCommand);
+
+dbCommand
+  .command("status")
+  .description("Show sync status of local databases")
+  .action(dbStatusCommand);
+
+dbCommand
+  .command("list")
+  .alias("ls")
+  .description("List local databases")
+  .action(dbListCommand);
 
 program.parse();
