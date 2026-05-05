@@ -13,6 +13,7 @@ import { workspacesCommand } from "./commands/workspaces.js";
 import { dbPullCommand, dbPushCommand, dbStatusCommand, dbListCommand } from "./commands/db/index.js";
 import { registerPageCommands } from "./commands/page-crud.js";
 import { registerDatabaseCrudCommands, registerRowCommands } from "./commands/db-crud.js";
+import { registerPropertyCommands } from "./commands/prop-crud.js";
 import {
   registerBoardCommands,
   registerListCommands,
@@ -152,6 +153,7 @@ dbCommand
 registerPageCommands(program);
 registerDatabaseCrudCommands(dbCommand);
 registerRowCommands(program);
+registerPropertyCommands(program);
 registerBoardCommands(program);
 registerListCommands(program);
 registerCardCommands(program);

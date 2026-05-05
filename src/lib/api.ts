@@ -266,6 +266,52 @@ class ApiClient {
     return this.request<DeletedResource>(`/databases/${databaseId}`, { method: "DELETE" });
   }
 
+  // ===== Direct CRUD: properties =====
+
+  async createProperty(
+    databaseId: string,
+    payload: {
+      name: string;
+      type: string;
+      data_source_id?: string;
+      options?: Array<string | { name: string; color?: string }>;
+    }
+  ): Promise<{
+    property_id: string;
+    property_name: string;
+    property_type: string;
+    data_source_id: string;
+  }> {
+    return this.request(`/databases/${databaseId}/properties`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateProperty(
+    databaseId: string,
+    propertyId: string,
+    payload: {
+      name?: string;
+      type?: string;
+      options?: Array<string | { id?: string; name: string; color?: string }>;
+    }
+  ): Promise<unknown> {
+    return this.request(`/databases/${databaseId}/properties/${propertyId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteProperty(
+    databaseId: string,
+    propertyId: string
+  ): Promise<DeletedResource & { property_id: string }> {
+    return this.request(`/databases/${databaseId}/properties/${propertyId}`, {
+      method: "DELETE",
+    });
+  }
+
   // ===== Direct CRUD: rows =====
 
   async createRow(
