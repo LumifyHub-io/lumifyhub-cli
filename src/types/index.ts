@@ -105,3 +105,60 @@ export interface DatabaseSyncStatus {
   localHash?: string;
   remoteHash?: string;
 }
+
+// Direct CRUD types
+
+export interface BoardSummary {
+  id: string;
+  page_id: string;
+  workspace_id: string;
+  workspace_slug?: string;
+  title: string;
+  slug: string;
+  updated_at?: string;
+}
+
+export interface BoardList {
+  id: string;
+  board_id: string;
+  user_id: string | null;
+  name: string;
+  position: number;
+  is_completed_list?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface BoardCard {
+  id: string;
+  board_id?: string;
+  list_id: string;
+  list_name?: string | null;
+  title: string;
+  description?: unknown;
+  labels?: string[];
+  due_date?: string | null;
+  completed?: boolean;
+  position?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface BoardWithDetails extends BoardSummary {
+  lists: BoardList[];
+  cards: BoardCard[];
+}
+
+export interface CreatedDatabase {
+  id: string;
+  title: string;
+  slug: string;
+  workspace_id: string;
+  workspace_slug: string;
+  default_data_source_id: string;
+}
+
+export interface DeletedResource {
+  id: string;
+  deleted: true;
+}

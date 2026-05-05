@@ -11,6 +11,13 @@ import { newCommand } from "./commands/new.js";
 import { addCommand } from "./commands/add.js";
 import { workspacesCommand } from "./commands/workspaces.js";
 import { dbPullCommand, dbPushCommand, dbStatusCommand, dbListCommand } from "./commands/db/index.js";
+import { registerPageCommands } from "./commands/page-crud.js";
+import { registerDatabaseCrudCommands, registerRowCommands } from "./commands/db-crud.js";
+import {
+  registerBoardCommands,
+  registerListCommands,
+  registerCardCommands,
+} from "./commands/board-crud.js";
 
 const program = new Command();
 
@@ -81,8 +88,8 @@ program
     const isLocal = config.apiUrl.includes("localhost");
 
     if (isLocal) {
-      setApiUrl("https://www.lumifyhub.io");
-      console.log(chalk.green("Switched to production: https://www.lumifyhub.io"));
+      setApiUrl("https://lumifyhub.io");
+      console.log(chalk.green("Switched to production: https://lumifyhub.io"));
     } else {
       setApiUrl("http://localhost:3001");
       console.log(chalk.green("Switched to local dev: http://localhost:3001"));
@@ -108,6 +115,7 @@ program
   .command("workspaces")
   .alias("ws")
   .description("List your workspaces")
+  .option("--json", "Output JSON")
   .action(workspacesCommand);
 
 // Database commands
@@ -139,5 +147,13 @@ dbCommand
   .alias("ls")
   .description("List local databases")
   .action(dbListCommand);
+
+// Direct CRUD command groups (no filesystem sync — for scripting / agents)
+registerPageCommands(program);
+registerDatabaseCrudCommands(dbCommand);
+registerRowCommands(program);
+registerBoardCommands(program);
+registerListCommands(program);
+registerCardCommands(program);
 
 program.parse();

@@ -114,6 +114,56 @@ Your content here...
 
 Then run `lh push` to create it on LumifyHub.
 
+## Direct CRUD (no filesystem sync)
+
+These commands hit the API directly — useful for scripting and AI agents.
+Add `--json` to any of them for machine-readable output.
+
+```bash
+# Pages
+lh page list [-w workspace] [--json]
+lh page get <id> [--json]
+lh page create <title> -w <workspace> [-c content | --from-file f] [--parent-id id]
+lh page update <id> [-t title] [-c content | --from-file f]
+lh page delete <id>
+
+# Databases
+lh db list [-w workspace] [--json]
+lh db create <title> -w <workspace>
+lh db get <id> [--json]
+lh db delete <id>
+
+# Database rows
+lh row list <db-id> [--json]
+lh row get <db-id> <row-id> [--json]
+lh row create <db-id> -t <title> [--prop key=value ...] [-d data-source-id]
+lh row update <db-id> <row-id> [-t title] [--prop key=value ...] [-d data-source-id]
+lh row delete <db-id> <row-id>
+
+# Boards (Kanban)
+lh board list [-w workspace] [--json]
+lh board create <title> -w <workspace> [--private]
+lh board get <id> [--json]
+lh board delete <id>
+
+# Lists (Kanban columns)
+lh list ls <board-id> [--json]
+lh list create <board-id> -n <name> [-p position]
+lh list update <board-id> <list-id> [-n name] [-p position] [--completed]
+lh list delete <board-id> <list-id>
+
+# Cards
+lh card list <board-id> [-l list-id] [--json]
+lh card create <board-id> -l <list-id> -t <title> [-d description]
+lh card get <board-id> <card-id> [--json]
+lh card update <board-id> <card-id> [-t title] [-l list-id] [--due iso] [--completed]
+lh card delete <board-id> <card-id>
+```
+
+`--prop key=value` accepts plain strings, numbers, booleans, JSON arrays/objects,
+and resolves select option **names** to IDs server-side (e.g. `--prop status=Done`).
+Property keys may be either the property's machine ID or its display name.
+
 ## Documentation
 
 Full documentation at [lumifyhub.io/cli](https://lumifyhub.io/cli)
