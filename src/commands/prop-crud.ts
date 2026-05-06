@@ -16,6 +16,16 @@ interface PropCreateOpts {
   type: string;
   dataSourceId?: string;
   option: string[];
+  // formula
+  expression?: string;
+  outputType?: string;
+  // relation
+  targetDatabaseId?: string;
+  targetDataSourceId?: string;
+  // rollup
+  relationPropertyId?: string;
+  targetPropertyId?: string;
+  aggregation?: string;
   json?: boolean;
 }
 
@@ -26,12 +36,39 @@ async function propCreate(databaseId: string, name: string, opts: PropCreateOpts
   }
 
   try {
-    const result = await api.createProperty(databaseId, {
+    const payload: Parameters<typeof api.createProperty>[1] = {
       name,
       type: opts.type,
       ...(opts.dataSourceId ? { data_source_id: opts.dataSourceId } : {}),
       ...(opts.option.length > 0 ? { options: opts.option } : {}),
-    });
+    };
+
+    if (opts.type === "formula") {
+      if (!opts.expression) { printError("--expression required for formula type", opts); return; }
+      Object.assign(payload, { expression: opts.expression, output_type: opts.outputType ?? "text" });
+    }
+
+    if (opts.type === "relation") {
+      if (!opts.targetDatabaseId) { printError("--target-database-id required for relation type", opts); return; }
+      Object.assign(payload, {
+        target_database_id: opts.targetDatabaseId,
+        ...(opts.targetDataSourceId ? { target_data_source_id: opts.targetDataSourceId } : {}),
+      });
+    }
+
+    if (opts.type === "rollup") {
+      if (!opts.relationPropertyId || !opts.targetPropertyId || !opts.aggregation) {
+        printError("--relation-property-id, --target-property-id, and --aggregation required for rollup", opts);
+        return;
+      }
+      Object.assign(payload, {
+        relation_property_id: opts.relationPropertyId,
+        target_property_id: opts.targetPropertyId,
+        aggregation: opts.aggregation,
+      });
+    }
+
+    const result = await api.createProperty(databaseId, payload);
     printResult(
       result,
       (r) =>
@@ -105,15 +142,20 @@ export function registerPropertyCommands(program: Command): void {
     .description("Create a new property column")
     .requiredOption(
       "-t, --type <type>",
-      "Property type (text|number|date|select|multi_select|checkbox|url|email|...)"
+      "Property type (text|number|date|select|multi_select|checkbox|url|email|formula|relation|rollup|...)"
     )
     .option("-d, --data-source-id <id>", "Data source (defaults to first)")
-    .option(
-      "--option <name>",
-      "Select / multi_select option name (repeatable)",
-      collect,
-      []
-    )
+    .option("--option <name>", "Select / multi_select option name (repeatable)", collect, [])
+    // formula
+    .option("--expression <expr>", "Formula expression (required for formula type)")
+    .option("--output-type <type>", "Formula output type: number|text|date|boolean (default: text)")
+    // relation
+    .option("--target-database-id <id>", "Target database UUID (required for relation type)")
+    .option("--target-data-source-id <id>", "Target data source UUID (optional for relation type)")
+    // rollup
+    .option("--relation-property-id <id>", "Relation property ID (required for rollup type)")
+    .option("--target-property-id <id>", "Target property ID to aggregate (required for rollup type)")
+    .option("--aggregation <fn>", "Aggregation function: count|sum|avg|min|max (required for rollup type)")
     .option("--json", "Output JSON")
     .action(propCreate);
 

@@ -19,6 +19,8 @@ import {
   registerListCommands,
   registerCardCommands,
 } from "./commands/board-crud.js";
+import { registerViewCommands } from "./commands/view-crud.js";
+import { registerSourceCommands } from "./commands/source-crud.js";
 
 const program = new Command();
 
@@ -157,5 +159,7 @@ registerPropertyCommands(program);
 registerBoardCommands(program);
 registerListCommands(program);
 registerCardCommands(program);
+registerViewCommands(program);
+registerSourceCommands(program);
 
 program.parse();

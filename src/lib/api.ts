@@ -12,6 +12,9 @@ import type {
   BoardWithDetails,
   CreatedDatabase,
   DeletedResource,
+  DatabaseView,
+  DataSource,
+  RelationValue,
 } from "../types/index.js";
 
 class ApiClient {
@@ -275,6 +278,16 @@ class ApiClient {
       type: string;
       data_source_id?: string;
       options?: Array<string | { name: string; color?: string }>;
+      // formula
+      expression?: string;
+      output_type?: string;
+      // relation
+      target_database_id?: string;
+      target_data_source_id?: string;
+      // rollup
+      relation_property_id?: string;
+      target_property_id?: string;
+      aggregation?: string;
     }
   ): Promise<{
     property_id: string;
@@ -457,6 +470,120 @@ class ApiClient {
   async deleteCard(boardId: string, cardId: string): Promise<DeletedResource> {
     return this.request<DeletedResource>(`/boards/${boardId}/cards/${cardId}`, {
       method: "DELETE",
+    });
+  }
+
+  // ===== Views =====
+
+  async getViews(databaseId: string): Promise<DatabaseView[]> {
+    return this.request<DatabaseView[]>(`/databases/${databaseId}/views`);
+  }
+
+  async createView(
+    databaseId: string,
+    payload: { name: string; type: "table" | "board" | "form"; data_source_id: string; sort_order?: number }
+  ): Promise<DatabaseView> {
+    return this.request<DatabaseView>(`/databases/${databaseId}/views`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateView(
+    databaseId: string,
+    viewId: string,
+    payload: { name?: string; type?: "table" | "board" | "form"; data_source_id?: string; sort_order?: number }
+  ): Promise<DatabaseView> {
+    return this.request<DatabaseView>(`/databases/${databaseId}/views/${viewId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteView(databaseId: string, viewId: string): Promise<DeletedResource> {
+    return this.request<DeletedResource>(`/databases/${databaseId}/views/${viewId}`, { method: "DELETE" });
+  }
+
+  // ===== Data Sources =====
+
+  async getSources(databaseId: string): Promise<DataSource[]> {
+    return this.request<DataSource[]>(`/databases/${databaseId}/sources`);
+  }
+
+  async createSource(
+    databaseId: string,
+    payload: { name: string; sort_order?: number }
+  ): Promise<DataSource> {
+    return this.request<DataSource>(`/databases/${databaseId}/sources`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async linkSource(
+    databaseId: string,
+    payload: { name: string; source_database_id: string; sort_order?: number }
+  ): Promise<DataSource> {
+    return this.request<DataSource>(`/databases/${databaseId}/sources?link=true`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateSource(
+    databaseId: string,
+    sourceId: string,
+    payload: { name?: string; sort_order?: number }
+  ): Promise<DataSource> {
+    return this.request<DataSource>(`/databases/${databaseId}/sources/${sourceId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteSource(databaseId: string, sourceId: string): Promise<DeletedResource> {
+    return this.request<DeletedResource>(`/databases/${databaseId}/sources/${sourceId}`, { method: "DELETE" });
+  }
+
+  // ===== Relation Values =====
+
+  async getRelations(databaseId: string, rowId: string, propId: string): Promise<RelationValue[]> {
+    return this.request<RelationValue[]>(`/databases/${databaseId}/rows/${rowId}/relations/${propId}`);
+  }
+
+  async setRelations(
+    databaseId: string,
+    rowId: string,
+    propId: string,
+    relatedRowIds: string[]
+  ): Promise<RelationValue[]> {
+    return this.request<RelationValue[]>(`/databases/${databaseId}/rows/${rowId}/relations/${propId}`, {
+      method: "PUT",
+      body: JSON.stringify({ related_row_ids: relatedRowIds }),
+    });
+  }
+
+  async linkRelation(
+    databaseId: string,
+    rowId: string,
+    propId: string,
+    relatedRowId: string
+  ): Promise<RelationValue> {
+    return this.request<RelationValue>(`/databases/${databaseId}/rows/${rowId}/relations/${propId}`, {
+      method: "POST",
+      body: JSON.stringify({ related_row_id: relatedRowId }),
+    });
+  }
+
+  async unlinkRelation(
+    databaseId: string,
+    rowId: string,
+    propId: string,
+    relatedRowId: string
+  ): Promise<{ unlinked: boolean }> {
+    return this.request<{ unlinked: boolean }>(`/databases/${databaseId}/rows/${rowId}/relations/${propId}`, {
+      method: "DELETE",
+      body: JSON.stringify({ related_row_id: relatedRowId }),
     });
   }
 

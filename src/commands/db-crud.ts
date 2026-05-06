@@ -273,4 +273,71 @@ export function registerRowCommands(program: Command): void {
     .description("Soft-delete a row")
     .option("--json", "Output JSON")
     .action(rowDelete);
+
+  row
+    .command("relations <db-id> <row-id> <prop-id>")
+    .alias("rels")
+    .description("Get related rows for a relation property")
+    .option("--json", "Output JSON")
+    .action(async (dbId: string, rowId: string, propId: string, opts: { json?: boolean }) => {
+      if (!isAuthenticated()) { printError("Not authenticated. Run 'lh login' first.", opts); return; }
+      try {
+        const values = await api.getRelations(dbId, rowId, propId);
+        printResult(values, (list) => {
+          if (list.length === 0) { console.log("No linked rows."); return; }
+          for (const v of list) console.log(chalk.cyan(v.related_row_id));
+        }, opts);
+      } catch (err) {
+        printError(err instanceof Error ? err.message : "Failed to get relations", opts);
+      }
+    });
+
+  row
+    .command("link <db-id> <row-id> <prop-id> <related-row-id>")
+    .description("Link a related row to a relation property")
+    .option("--json", "Output JSON")
+    .action(async (dbId: string, rowId: string, propId: string, relatedRowId: string, opts: { json?: boolean }) => {
+      if (!isAuthenticated()) { printError("Not authenticated. Run 'lh login' first.", opts); return; }
+      try {
+        const value = await api.linkRelation(dbId, rowId, propId, relatedRowId);
+        printResult(value, () =>
+          console.log(`${chalk.green("Linked")} ${relatedRowId} → row ${rowId} prop ${propId}`),
+        opts);
+      } catch (err) {
+        printError(err instanceof Error ? err.message : "Failed to link relation", opts);
+      }
+    });
+
+  row
+    .command("unlink <db-id> <row-id> <prop-id> <related-row-id>")
+    .description("Unlink a related row from a relation property")
+    .option("--json", "Output JSON")
+    .action(async (dbId: string, rowId: string, propId: string, relatedRowId: string, opts: { json?: boolean }) => {
+      if (!isAuthenticated()) { printError("Not authenticated. Run 'lh login' first.", opts); return; }
+      try {
+        await api.unlinkRelation(dbId, rowId, propId, relatedRowId);
+        printResult({ unlinked: true }, () =>
+          console.log(`${chalk.green("Unlinked")} ${relatedRowId} from row ${rowId} prop ${propId}`),
+        opts);
+      } catch (err) {
+        printError(err instanceof Error ? err.message : "Failed to unlink relation", opts);
+      }
+    });
+
+  row
+    .command("set-relations <db-id> <row-id> <prop-id>")
+    .description("Replace all related rows for a relation property")
+    .requiredOption("-r, --related-row-id <id>", "Related row UUID (repeatable)", collect, [])
+    .option("--json", "Output JSON")
+    .action(async (dbId: string, rowId: string, propId: string, opts: { relatedRowId: string[]; json?: boolean }) => {
+      if (!isAuthenticated()) { printError("Not authenticated. Run 'lh login' first.", opts); return; }
+      try {
+        const values = await api.setRelations(dbId, rowId, propId, opts.relatedRowId);
+        printResult(values, () =>
+          console.log(`${chalk.green("Set")} ${opts.relatedRowId.length} relation(s) on prop ${propId}`),
+        opts);
+      } catch (err) {
+        printError(err instanceof Error ? err.message : "Failed to set relations", opts);
+      }
+    });
 }

@@ -162,3 +162,33 @@ export interface DeletedResource {
   id: string;
   deleted: true;
 }
+
+export interface DatabaseView {
+  id: string;
+  container_id: string;
+  view_name: string;
+  view_type: "table" | "board" | "form";
+  data_source_id: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DataSource {
+  id: string;
+  container_id: string;
+  name: string;
+  is_linked: boolean;
+  source_database_id: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RelationValue {
+  id: string;
+  row_id: string;
+  property_id: string;
+  related_row_id: string;
+  created_at: string;
+}
