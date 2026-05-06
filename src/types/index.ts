@@ -192,3 +192,34 @@ export interface RelationValue {
   related_row_id: string;
   created_at: string;
 }
+
+export interface ViewFilter {
+  id: string;
+  propertyId: string;
+  operator:
+    | "equals" | "not_equals" | "contains" | "not_contains"
+    | "starts_with" | "ends_with" | "is_empty" | "is_not_empty"
+    | "greater_than" | "less_than" | "greater_than_or_equal" | "less_than_or_equal"
+    | "is_checked" | "is_not_checked" | "before" | "after" | "on_or_before" | "on_or_after";
+  value?: unknown;
+  logic?: "and" | "or";
+}
+
+export interface ViewSort {
+  propertyId: string;
+  direction: "asc" | "desc";
+}
+
+export interface ViewBoardSettings {
+  groupByPropertyId?: string | null;
+  cardDisplayProperties?: string[];
+  columnOrder?: string[];
+  hideEmptyColumns?: boolean;
+  cardSize?: "small" | "medium" | "large";
+}
+
+export interface ViewSettings {
+  filters?: ViewFilter[];
+  sorts?: ViewSort[];
+  boardSettings?: ViewBoardSettings;
+}
