@@ -15,6 +15,10 @@ import type {
   DatabaseView,
   DataSource,
   RelationValue,
+  ViewSettings,
+  ViewFilter,
+  ViewSort,
+  ViewBoardSettings,
 } from "../types/index.js";
 
 class ApiClient {
@@ -502,6 +506,25 @@ class ApiClient {
 
   async deleteView(databaseId: string, viewId: string): Promise<DeletedResource> {
     return this.request<DeletedResource>(`/databases/${databaseId}/views/${viewId}`, { method: "DELETE" });
+  }
+
+  async getViewSettings(databaseId: string, viewId: string): Promise<ViewSettings> {
+    return this.request<ViewSettings>(`/databases/${databaseId}/views/${viewId}/settings`);
+  }
+
+  async updateViewSettings(
+    databaseId: string,
+    viewId: string,
+    payload: {
+      filters?: ViewFilter[];
+      sorts?: ViewSort[];
+      boardSettings?: ViewBoardSettings;
+    }
+  ): Promise<ViewSettings> {
+    return this.request<ViewSettings>(`/databases/${databaseId}/views/${viewId}/settings`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
   }
 
   // ===== Data Sources =====
