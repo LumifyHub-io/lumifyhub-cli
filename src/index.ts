@@ -12,6 +12,7 @@ import { addCommand } from "./commands/add.js";
 import { workspacesCommand } from "./commands/workspaces.js";
 import { dbPullCommand, dbPushCommand, dbStatusCommand, dbListCommand } from "./commands/db/index.js";
 import { registerPageCommands } from "./commands/page-crud.js";
+import { VERSION } from "./lib/version.js";
 import { registerDatabaseCrudCommands, registerRowCommands } from "./commands/db-crud.js";
 import { registerPropertyCommands } from "./commands/prop-crud.js";
 import {
@@ -27,7 +28,7 @@ const program = new Command();
 program
   .name("lh")
   .description("LumifyHub CLI - sync and manage your pages locally")
-  .version("0.1.0");
+  .version(VERSION);
 
 // Auth commands
 program

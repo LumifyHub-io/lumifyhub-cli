@@ -1,4 +1,5 @@
 import { getConfig } from "./config.js";
+import { CLIENT_HEADER } from "./version.js";
 import type {
   Page,
   Workspace,
@@ -21,6 +22,10 @@ import type {
   ViewBoardSettings,
 } from "../types/index.js";
 
+/** `--parent root` — top-level pages, the ones with no parent. */
+export const ROOT_PARENT = "root";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 class ApiClient {
   private getHeaders(): HeadersInit {
     const config = getConfig();
@@ -30,6 +35,8 @@ class ApiClient {
     return {
       "Content-Type": "application/json",
       Authorization: `Bearer ${config.token}`,
+      // Provenance: the server stamps "via lh/<version>" on what we create.
+      "X-LumifyHub-Client": CLIENT_HEADER,
     };
   }
 
@@ -66,10 +73,19 @@ class ApiClient {
     return data.data;
   }
 
-  async getPages(workspaceSlug?: string): Promise<Page[]> {
+  /**
+   * `parentId` filters by parent: a page id for that page's children, or
+   * `"root"` for top-level pages. The server's three states are absent =
+   * every page, `null`/empty = roots, uuid = children — it does not know
+   * the word "root", so it is translated here.
+   */
+  async getPages(workspaceSlug?: string, parentId?: string): Promise<Page[]> {
     const url = new URL(`${this.getBaseUrl()}/pages`);
     if (workspaceSlug) {
       url.searchParams.set("workspace", workspaceSlug);
+    }
+    if (parentId !== undefined) {
+      url.searchParams.set("parent_id", parentId === ROOT_PARENT ? "null" : parentId);
     }
 
     const response = await fetch(url.toString(), {
@@ -85,18 +101,51 @@ class ApiClient {
     return data.data;
   }
 
-  async getPage(pageId: string): Promise<Page> {
-    const response = await fetch(`${this.getBaseUrl()}/pages/${pageId}`, {
+  /**
+   * `ref` is a page id or a slug path (`cornerlot/development`). A path is
+   * resolved in every workspace the token reaches unless `workspaceSlug`
+   * narrows it; the server answers 409 when it matches in more than one.
+   */
+  async getPage(ref: string, workspaceSlug?: string): Promise<Page> {
+    const url = new URL(`${this.getBaseUrl()}/pages/${ref}`);
+    if (workspaceSlug) {
+      url.searchParams.set("workspace", workspaceSlug);
+    }
+
+    const response = await fetch(url.toString(), {
       method: "GET",
       headers: this.getHeaders(),
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch page: ${response.statusText}`);
+      const err: { error?: string; workspaces?: { slug: string; page_id: string }[] } =
+        await response.json().catch(() => ({}));
+      // The server says "pass ?workspace="; at the CLI that flag is -w.
+      const message = (err.error || `Failed to fetch page: ${response.statusText}`).replace(
+        "pass ?workspace=",
+        "pass -w <slug>"
+      );
+      const lines = [message];
+      for (const match of err.workspaces ?? []) {
+        lines.push(`  ${match.slug}: ${match.page_id}`);
+      }
+      throw new Error(lines.join("\n"));
     }
 
     const data: ApiResponse<Page> = await response.json();
     return data.data;
+  }
+
+  /**
+   * Turn a page reference (id or slug path) into an id, for endpoints that
+   * only take ids (`parent_id` on list and create). Ids pass through
+   * without a request.
+   */
+  async resolvePageId(ref: string, workspaceSlug?: string): Promise<string> {
+    if (ref === ROOT_PARENT || UUID_RE.test(ref)) {
+      return ref;
+    }
+    return (await this.getPage(ref, workspaceSlug)).id;
   }
 
   async updatePage(
