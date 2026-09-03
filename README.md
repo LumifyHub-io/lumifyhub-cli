@@ -121,9 +121,9 @@ Add `--json` to any of them for machine-readable output.
 
 ```bash
 # Pages
-lh page list [-w workspace] [--json]
-lh page get <id> [--json]
-lh page create <title> -w <workspace> [-c content | --from-file f] [--parent-id id]
+lh page list [-w workspace] [--parent <id|path|root>] [--json]
+lh page get <id|path> [-w workspace] [--json]
+lh page create <title> -w <workspace> [-c content | --from-file f] [--parent <id|path>]
 lh page update <id> [-t title] [-c content | --from-file f]
 lh page delete <id>
 
@@ -159,6 +159,40 @@ lh card get <board-id> <card-id> [--json]
 lh card update <board-id> <card-id> [-t title] [-l list-id] [--due iso] [--completed]
 lh card delete <board-id> <card-id>
 ```
+
+### Page hierarchy
+
+Pages nest, and a page's `path` is the slugs of every ancestor down to
+itself (`business/cornerlot/development`). A slug only has to be unique among
+its siblings, so the path — not the title — is what tells three pages called
+"Development" apart. `lh page list` prints `workspace/path`, and every page
+in `--json` carries `path` and `parent_page_id`.
+
+```bash
+# Top-level pages of a workspace
+lh page list -w saads-workspace --parent root
+
+# Children of a page, by id or by path
+lh page list --parent cornerlot
+lh page list --parent business/cornerlot
+
+# A page by path. A trailing sub-path is enough as long as it is unambiguous;
+# if it matches in several workspaces you get a 409 listing them — pass -w.
+lh page get cornerlot/development --json
+lh page get lumifyhub -w blackarc-labs
+
+# Create under a parent, by id or by path
+lh page create "Roadmap" -w saads-workspace --parent cornerlot
+```
+
+`--parent-id` is still accepted on `create` as an alias of `--parent`.
+
+### Client header
+
+Every request carries `X-LumifyHub-Client: lh/<version>`, with the version
+baked in from `package.json` at build time. The server records it as
+provenance, so a card created through `lh` shows "via lh/0.3.0" on its
+timeline. `lh --version` prints the same value.
 
 `--prop key=value` accepts plain strings, numbers, booleans, JSON arrays/objects,
 and resolves select option **names** to IDs server-side (e.g. `--prop status=Done`).

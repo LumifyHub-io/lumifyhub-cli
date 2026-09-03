@@ -7,11 +7,13 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { readFileSync } from "fs";
 import { isAuthenticated } from "../lib/config.js";
-import { api } from "../lib/api.js";
+import { api, ROOT_PARENT } from "../lib/api.js";
 import { printResult, printError } from "../lib/output.js";
 
 interface PageListOpts {
   workspace?: string;
+  /** Page id, slug path, or "root" for top-level pages. */
+  parent?: string;
   json?: boolean;
 }
 
@@ -21,7 +23,9 @@ async function pageList(opts: PageListOpts): Promise<void> {
     return;
   }
   try {
-    const pages = await api.getPages(opts.workspace);
+    const parentId =
+      opts.parent === undefined ? undefined : await api.resolvePageId(opts.parent, opts.workspace);
+    const pages = await api.getPages(opts.workspace, parentId);
     printResult(
       pages,
       (rows) => {
@@ -30,7 +34,9 @@ async function pageList(opts: PageListOpts): Promise<void> {
           return;
         }
         for (const p of rows) {
-          console.log(`${chalk.cyan(p.id)}  ${p.title}  ${chalk.gray(`(${p.workspace_slug})`)}`);
+          // The path, not the title: three pages called "Development" are
+          // only told apart by which parent they sit under.
+          console.log(`${chalk.cyan(p.id)}  ${p.workspace_slug}/${p.path}  ${chalk.gray(p.title)}`);
         }
       },
       opts
@@ -40,18 +46,24 @@ async function pageList(opts: PageListOpts): Promise<void> {
   }
 }
 
-async function pageGet(id: string, opts: { json?: boolean }): Promise<void> {
+interface PageGetOpts {
+  workspace?: string;
+  json?: boolean;
+}
+
+async function pageGet(ref: string, opts: PageGetOpts): Promise<void> {
   if (!isAuthenticated()) {
     printError("Not authenticated. Run 'lh login' first.", opts);
     return;
   }
   try {
-    const page = await api.getPage(id);
+    const page = await api.getPage(ref, opts.workspace);
     printResult(
       page,
       (p) => {
         console.log(chalk.bold(p.title));
         console.log(chalk.gray(`${p.id}  workspace=${p.workspace_slug}  updated=${p.updated_at}`));
+        console.log(chalk.gray(`path=${p.path}  parent=${p.parent_page_id ?? ROOT_PARENT}`));
         console.log();
         console.log(p.content);
       },
@@ -66,6 +78,9 @@ interface PageCreateOpts {
   workspace: string;
   content?: string;
   fromFile?: string;
+  /** Page id or slug path. */
+  parent?: string;
+  /** Older spelling of --parent; kept so existing scripts keep working. */
   parentId?: string;
   json?: boolean;
 }
@@ -89,10 +104,13 @@ async function pageCreate(title: string, opts: PageCreateOpts): Promise<void> {
     }
   }
   try {
-    const page = await api.createPage(title, content, opts.workspace, opts.parentId);
+    const parentRef = opts.parent ?? opts.parentId;
+    const parentId =
+      parentRef === undefined ? undefined : await api.resolvePageId(parentRef, opts.workspace);
+    const page = await api.createPage(title, content, opts.workspace, parentId);
     printResult(
       page,
-      (p) => console.log(chalk.green(`Created page ${p.id}: ${p.title}`)),
+      (p) => console.log(chalk.green(`Created page ${p.id}: ${p.workspace_slug}/${p.path}`)),
       opts
     );
   } catch (err) {
@@ -166,14 +184,19 @@ export function registerPageCommands(program: Command): void {
   page
     .command("list")
     .alias("ls")
-    .description("List pages")
+    .description("List pages with their slug paths")
     .option("-w, --workspace <slug>", "Filter by workspace")
+    .option(
+      "--parent <id|path|root>",
+      "Only children of this page (id or slug path), or 'root' for top-level pages"
+    )
     .option("--json", "Output JSON")
     .action(pageList);
 
   page
-    .command("get <id>")
-    .description("Show a page by ID")
+    .command("get <id|path>")
+    .description("Show a page by ID or slug path (e.g. cornerlot/development)")
+    .option("-w, --workspace <slug>", "Workspace to resolve a path in (when it exists in several)")
     .option("--json", "Output JSON")
     .action(pageGet);
 
@@ -183,7 +206,8 @@ export function registerPageCommands(program: Command): void {
     .option("-w, --workspace <slug>", "Workspace slug (required)")
     .option("-c, --content <text>", "Page content (markdown)")
     .option("--from-file <path>", "Read content from a file")
-    .option("--parent-id <id>", "Parent page ID")
+    .option("--parent <id|path>", "Parent page (id or slug path, e.g. cornerlot)")
+    .option("--parent-id <id>", "Alias of --parent (kept for older scripts)")
     .option("--json", "Output JSON")
     .action(pageCreate);
 
