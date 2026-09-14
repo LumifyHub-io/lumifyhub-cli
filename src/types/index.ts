@@ -129,6 +129,9 @@ export interface BoardList {
   name: string;
   position: number;
   is_completed_list?: boolean;
+  // backlog | unstarted | started | completed | canceled. `is_completed_list`
+  // is kept equal to `category === "completed"` by the server.
+  category?: string;
   created_at?: string;
   updated_at?: string;
 }

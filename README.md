@@ -148,8 +148,8 @@ lh board delete <id>
 
 # Lists (Kanban columns)
 lh list ls <board-id> [--json]
-lh list create <board-id> -n <name> [-p position]
-lh list update <board-id> <list-id> [-n name] [-p position] [--completed]
+lh list create <board-id> -n <name> [-p position] [--category <status>]
+lh list update <board-id> <list-id> [-n name] [-p position] [--completed] [--category <status>]
 lh list delete <board-id> <list-id>
 
 # Cards

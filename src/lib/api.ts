@@ -456,7 +456,7 @@ class ApiClient {
 
   async createList(
     boardId: string,
-    payload: { name: string; position?: number }
+    payload: { name: string; position?: number; category?: string }
   ): Promise<BoardList> {
     return this.request<BoardList>(`/boards/${boardId}/lists`, {
       method: "POST",
@@ -467,7 +467,7 @@ class ApiClient {
   async updateList(
     boardId: string,
     listId: string,
-    payload: { name?: string; position?: number; is_completed_list?: boolean }
+    payload: { name?: string; position?: number; is_completed_list?: boolean; category?: string }
   ): Promise<BoardList> {
     return this.request<BoardList>(`/boards/${boardId}/lists/${listId}`, {
       method: "PUT",

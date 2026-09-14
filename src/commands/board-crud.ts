@@ -129,7 +129,8 @@ async function listList(boardId: string, opts: { json?: boolean }): Promise<void
           return;
         }
         for (const l of rows) {
-          console.log(`${chalk.cyan(l.id)}  ${l.name}  ${chalk.gray(`pos=${l.position}`)}`);
+          const status = l.category ? chalk.gray(`[${l.category}]`) : "";
+          console.log(`${chalk.cyan(l.id)}  ${l.name}  ${status}  ${chalk.gray(`pos=${l.position}`)}`);
         }
       },
       opts
@@ -141,7 +142,7 @@ async function listList(boardId: string, opts: { json?: boolean }): Promise<void
 
 async function listCreate(
   boardId: string,
-  opts: { name: string; position?: string; json?: boolean }
+  opts: { name: string; position?: string; category?: string; json?: boolean }
 ): Promise<void> {
   if (!isAuthenticated()) {
     printError("Not authenticated. Run 'lh login' first.", opts);
@@ -151,6 +152,7 @@ async function listCreate(
     const list = await api.createList(boardId, {
       name: opts.name,
       ...(opts.position !== undefined ? { position: Number(opts.position) } : {}),
+      ...(opts.category !== undefined ? { category: opts.category } : {}),
     });
     printResult(
       list,
@@ -165,19 +167,20 @@ async function listCreate(
 async function listUpdate(
   boardId: string,
   listId: string,
-  opts: { name?: string; position?: string; completed?: boolean; json?: boolean }
+  opts: { name?: string; position?: string; completed?: boolean; category?: string; json?: boolean }
 ): Promise<void> {
   if (!isAuthenticated()) {
     printError("Not authenticated. Run 'lh login' first.", opts);
     return;
   }
-  const payload: { name?: string; position?: number; is_completed_list?: boolean } = {};
+  const payload: Parameters<typeof api.updateList>[2] = {};
   if (opts.name !== undefined) payload.name = opts.name;
   if (opts.position !== undefined) payload.position = Number(opts.position);
   if (opts.completed !== undefined) payload.is_completed_list = opts.completed;
+  if (opts.category !== undefined) payload.category = opts.category;
 
   if (Object.keys(payload).length === 0) {
-    printError("Provide --name, --position, or --completed", opts);
+    printError("Provide --name, --position, --completed or --category", opts);
     return;
   }
 
@@ -472,6 +475,7 @@ export function registerListCommands(program: Command): void {
     .description("Create a list on a board")
     .requiredOption("-n, --name <name>", "List name")
     .option("-p, --position <n>", "Position")
+    .option("--category <status>", "backlog, unstarted, started, completed or canceled")
     .option("--json", "Output JSON")
     .action(listCreate);
 
@@ -481,6 +485,7 @@ export function registerListCommands(program: Command): void {
     .option("-n, --name <name>", "New name")
     .option("-p, --position <n>", "New position")
     .option("--completed", "Mark as the completed list")
+    .option("--category <status>", "backlog, unstarted, started, completed or canceled")
     .option("--json", "Output JSON")
     .action(listUpdate);
 
