@@ -129,7 +129,8 @@ async function listList(boardId: string, opts: { json?: boolean }): Promise<void
           return;
         }
         for (const l of rows) {
-          console.log(`${chalk.cyan(l.id)}  ${l.name}  ${chalk.gray(`pos=${l.position}`)}`);
+          const status = l.category ? chalk.gray(`[${l.category}]`) : "";
+          console.log(`${chalk.cyan(l.id)}  ${l.name}  ${status}  ${chalk.gray(`pos=${l.position}`)}`);
         }
       },
       opts
@@ -141,7 +142,7 @@ async function listList(boardId: string, opts: { json?: boolean }): Promise<void
 
 async function listCreate(
   boardId: string,
-  opts: { name: string; position?: string; json?: boolean }
+  opts: { name: string; position?: string; category?: string; json?: boolean }
 ): Promise<void> {
   if (!isAuthenticated()) {
     printError("Not authenticated. Run 'lh login' first.", opts);
@@ -151,6 +152,7 @@ async function listCreate(
     const list = await api.createList(boardId, {
       name: opts.name,
       ...(opts.position !== undefined ? { position: Number(opts.position) } : {}),
+      ...(opts.category !== undefined ? { category: opts.category } : {}),
     });
     printResult(
       list,
@@ -165,19 +167,20 @@ async function listCreate(
 async function listUpdate(
   boardId: string,
   listId: string,
-  opts: { name?: string; position?: string; completed?: boolean; json?: boolean }
+  opts: { name?: string; position?: string; completed?: boolean; category?: string; json?: boolean }
 ): Promise<void> {
   if (!isAuthenticated()) {
     printError("Not authenticated. Run 'lh login' first.", opts);
     return;
   }
-  const payload: { name?: string; position?: number; is_completed_list?: boolean } = {};
+  const payload: Parameters<typeof api.updateList>[2] = {};
   if (opts.name !== undefined) payload.name = opts.name;
   if (opts.position !== undefined) payload.position = Number(opts.position);
   if (opts.completed !== undefined) payload.is_completed_list = opts.completed;
+  if (opts.category !== undefined) payload.category = opts.category;
 
   if (Object.keys(payload).length === 0) {
-    printError("Provide --name, --position, or --completed", opts);
+    printError("Provide --name, --position, --completed or --category", opts);
     return;
   }
 
@@ -206,18 +209,114 @@ async function listDelete(
   }
 }
 
-// ===== cards =====
+// ===== labels =====
 
-async function cardList(
+// Commander hands a repeatable option its previous value.
+function collect(value: string, previous: string[] = []): string[] {
+  return [...previous, value];
+}
+
+async function labelList(boardId: string, opts: { json?: boolean }): Promise<void> {
+  if (!isAuthenticated()) {
+    printError("Not authenticated. Run 'lh login' first.", opts);
+    return;
+  }
+  try {
+    const labels = await api.getLabels(boardId);
+    printResult(
+      labels,
+      (rows) => {
+        if (rows.length === 0) {
+          console.log(chalk.gray("No labels."));
+          return;
+        }
+        for (const l of rows) {
+          console.log(`${chalk.cyan(l.id)}  ${l.name ?? chalk.gray("(no name)")}  ${chalk.gray(l.color)}`);
+        }
+      },
+      opts
+    );
+  } catch (err) {
+    printError(err instanceof Error ? err.message : "Failed to list labels", opts);
+  }
+}
+
+async function labelCreate(
   boardId: string,
-  opts: { list?: string; json?: boolean }
+  name: string,
+  opts: { color?: string; json?: boolean }
 ): Promise<void> {
   if (!isAuthenticated()) {
     printError("Not authenticated. Run 'lh login' first.", opts);
     return;
   }
   try {
-    const cards = await api.getCards(boardId, opts.list);
+    const label = await api.createLabel(boardId, { name, ...(opts.color ? { color: opts.color } : {}) });
+    printResult(label, (l) => console.log(`${chalk.green("Created label")} ${chalk.cyan(l.id)}: ${l.name}`), opts);
+  } catch (err) {
+    printError(err instanceof Error ? err.message : "Failed to create label", opts);
+  }
+}
+
+async function labelUpdate(
+  boardId: string,
+  label: string,
+  opts: { name?: string; color?: string; json?: boolean }
+): Promise<void> {
+  if (!isAuthenticated()) {
+    printError("Not authenticated. Run 'lh login' first.", opts);
+    return;
+  }
+  if (opts.name === undefined && opts.color === undefined) {
+    printError("Provide --name or --color", opts);
+    return;
+  }
+  try {
+    const updated = await api.updateLabel(boardId, label, { name: opts.name, color: opts.color });
+    printResult(updated, (l) => console.log(chalk.green(`Updated label ${l.name}`)), opts);
+  } catch (err) {
+    printError(err instanceof Error ? err.message : "Failed to update label", opts);
+  }
+}
+
+async function labelDelete(boardId: string, label: string, opts: { json?: boolean }): Promise<void> {
+  if (!isAuthenticated()) {
+    printError("Not authenticated. Run 'lh login' first.", opts);
+    return;
+  }
+  try {
+    const result = await api.deleteLabel(boardId, label);
+    printResult(result, () => console.log(chalk.green(`Deleted label ${label} and took it off its cards`)), opts);
+  } catch (err) {
+    printError(err instanceof Error ? err.message : "Failed to delete label", opts);
+  }
+}
+
+// ===== cards =====
+
+// `--priority 2` goes out as a number and `--priority high` as the name; the
+// server resolves both and 400s anything else, so nothing is validated here
+// that could drift from its list.
+function priorityInput(value: string): string | number {
+  return /^\d+$/.test(value) ? Number(value) : value;
+}
+
+function priorityColor(name: string): string {
+  if (name === "urgent") return chalk.red.bold(name);
+  if (name === "high") return chalk.yellow(name);
+  return chalk.gray(name);
+}
+
+async function cardList(
+  boardId: string,
+  opts: { list?: string; priority?: string; json?: boolean }
+): Promise<void> {
+  if (!isAuthenticated()) {
+    printError("Not authenticated. Run 'lh login' first.", opts);
+    return;
+  }
+  try {
+    const cards = await api.getCards(boardId, opts.list, { priority: opts.priority });
     printResult(
       cards,
       (rows) => {
@@ -227,7 +326,10 @@ async function cardList(
         }
         for (const c of rows) {
           const list = c.list_name ? chalk.gray(`[${c.list_name}]`) : "";
-          console.log(`${chalk.cyan(c.id)}  ${c.title}  ${list}`);
+          const priority =
+            c.priority_name && c.priority_name !== "none" ? priorityColor(c.priority_name) : "";
+          const ticket = c.ticket ? chalk.gray(c.ticket) + "  " : "";
+          console.log(`${chalk.cyan(c.id)}  ${ticket}${priority ? priority + "  " : ""}${c.title}  ${list}`);
         }
       },
       opts
@@ -239,7 +341,15 @@ async function cardList(
 
 async function cardCreate(
   boardId: string,
-  opts: { list: string; title: string; description?: string; position?: string; json?: boolean }
+  opts: {
+    list: string;
+    title: string;
+    description?: string;
+    position?: string;
+    priority?: string;
+    label?: string[];
+    json?: boolean;
+  }
 ): Promise<void> {
   if (!isAuthenticated()) {
     printError("Not authenticated. Run 'lh login' first.", opts);
@@ -251,6 +361,8 @@ async function cardCreate(
       title: opts.title,
       ...(opts.description !== undefined ? { description: opts.description } : {}),
       ...(opts.position !== undefined ? { position: Number(opts.position) } : {}),
+      ...(opts.priority !== undefined ? { priority: priorityInput(opts.priority) } : {}),
+      ...(opts.label?.length ? { labels: opts.label } : {}),
     });
     printResult(
       card,
@@ -298,6 +410,9 @@ async function cardUpdate(
     due?: string;
     completed?: boolean;
     archived?: boolean;
+    priority?: string;
+    label?: string[];
+    removeLabel?: string[];
     json?: boolean;
   }
 ): Promise<void> {
@@ -313,6 +428,9 @@ async function cardUpdate(
   if (opts.due !== undefined) payload.due_date = opts.due === "" ? null : opts.due;
   if (opts.completed !== undefined) payload.completed = opts.completed;
   if (opts.archived !== undefined) payload.archived = opts.archived;
+  if (opts.priority !== undefined) payload.priority = priorityInput(opts.priority);
+  if (opts.label?.length) payload.add_labels = opts.label;
+  if (opts.removeLabel?.length) payload.remove_labels = opts.removeLabel;
 
   if (Object.keys(payload).length === 0) {
     printError("Provide at least one field to update", opts);
@@ -446,6 +564,7 @@ export function registerListCommands(program: Command): void {
     .description("Create a list on a board")
     .requiredOption("-n, --name <name>", "List name")
     .option("-p, --position <n>", "Position")
+    .option("--category <status>", "backlog, unstarted, started, completed or canceled")
     .option("--json", "Output JSON")
     .action(listCreate);
 
@@ -455,6 +574,7 @@ export function registerListCommands(program: Command): void {
     .option("-n, --name <name>", "New name")
     .option("-p, --position <n>", "New position")
     .option("--completed", "Mark as the completed list")
+    .option("--category <status>", "backlog, unstarted, started, completed or canceled")
     .option("--json", "Output JSON")
     .action(listUpdate);
 
@@ -474,6 +594,7 @@ export function registerCardCommands(program: Command): void {
     .alias("ls")
     .description("List cards on a board")
     .option("-l, --list <list-id>", "Filter by list ID")
+    .option("--priority <names>", "Filter by priority: urgent,high,medium,low,none or 0-4, comma-separated")
     .option("--json", "Output JSON")
     .action(cardList);
 
@@ -484,6 +605,8 @@ export function registerCardCommands(program: Command): void {
     .requiredOption("-t, --title <title>", "Card title")
     .option("-d, --description <text>", "Description")
     .option("-p, --position <n>", "Position")
+    .option("--priority <name|0-4>", "urgent, high, medium, low, none (or 0-4)")
+    .option("--label <name>", "Label by name or id (repeatable)", collect)
     .option("--json", "Output JSON")
     .action(cardCreate);
 
@@ -505,6 +628,9 @@ export function registerCardCommands(program: Command): void {
     .option("--no-completed", "Mark not completed")
     .option("--archived", "Archive the card")
     .option("--no-archived", "Unarchive the card")
+    .option("--priority <name|0-4>", "urgent, high, medium, low, none (or 0-4)")
+    .option("--label <name>", "Add a label, by name or id (repeatable)", collect)
+    .option("--remove-label <name>", "Remove a label, by name or id (repeatable)", collect)
     .option("--json", "Output JSON")
     .action(cardUpdate);
 
@@ -527,4 +653,37 @@ export function registerCardCommands(program: Command): void {
     .description("Soft-delete a card")
     .option("--json", "Output JSON")
     .action(cardDelete);
+}
+
+export function registerLabelCommands(program: Command): void {
+  const label = program.command("label").description("Manage a board's labels (a card's area)");
+
+  label
+    .command("ls <board-id>")
+    .alias("list")
+    .description("List a board's labels")
+    .option("--json", "Output JSON")
+    .action(labelList);
+
+  label
+    .command("create <board-id> <name>")
+    .description("Create a label")
+    .option("-c, --color <color>", "Colour (default gray)")
+    .option("--json", "Output JSON")
+    .action(labelCreate);
+
+  label
+    .command("update <board-id> <label>")
+    .description("Rename or recolour a label, addressed by name or id")
+    .option("-n, --name <name>", "New name")
+    .option("-c, --color <color>", "New colour")
+    .option("--json", "Output JSON")
+    .action(labelUpdate);
+
+  label
+    .command("delete <board-id> <label>")
+    .alias("rm")
+    .description("Delete a label and take it off every card")
+    .option("--json", "Output JSON")
+    .action(labelDelete);
 }

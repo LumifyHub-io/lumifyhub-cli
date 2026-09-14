@@ -19,6 +19,7 @@ import {
   registerBoardCommands,
   registerListCommands,
   registerCardCommands,
+  registerLabelCommands,
 } from "./commands/board-crud.js";
 import { registerViewCommands } from "./commands/view-crud.js";
 import { registerSourceCommands } from "./commands/source-crud.js";
@@ -160,6 +161,7 @@ registerPropertyCommands(program);
 registerBoardCommands(program);
 registerListCommands(program);
 registerCardCommands(program);
+registerLabelCommands(program);
 registerViewCommands(program);
 registerSourceCommands(program);
 

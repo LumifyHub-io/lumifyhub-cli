@@ -129,6 +129,9 @@ export interface BoardList {
   name: string;
   position: number;
   is_completed_list?: boolean;
+  // backlog | unstarted | started | completed | canceled. `is_completed_list`
+  // is kept equal to `category === "completed"` by the server.
+  category?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -144,7 +147,26 @@ export interface BoardCard {
   due_date?: string | null;
   completed?: boolean;
   archived_at?: string | null;
+  // 0 none, 1 urgent, 2 high, 3 medium, 4 low. The server accepts either
+  // spelling on writes and answers both on reads.
+  priority?: number;
+  priority_name?: string;
+  ticket?: string | null;
   position?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type CardPriorityInput = string | number;
+
+// A card's area. `BoardCard.labels` holds these ids; every write that takes
+// labels takes names too.
+export interface BoardLabel {
+  id: string;
+  board_id: string;
+  name: string | null;
+  color: string;
+  sort_order: number;
   created_at?: string;
   updated_at?: string;
 }

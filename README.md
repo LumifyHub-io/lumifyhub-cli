@@ -148,18 +148,24 @@ lh board delete <id>
 
 # Lists (Kanban columns)
 lh list ls <board-id> [--json]
-lh list create <board-id> -n <name> [-p position]
-lh list update <board-id> <list-id> [-n name] [-p position] [--completed]
+lh list create <board-id> -n <name> [-p position] [--category <status>]
+lh list update <board-id> <list-id> [-n name] [-p position] [--completed] [--category <status>]
 lh list delete <board-id> <list-id>
 
 # Cards
-lh card list <board-id> [-l list-id] [--json]
-lh card create <board-id> -l <list-id> -t <title> [-d description]
+lh card list <board-id> [-l list-id] [--priority urgent,high] [--json]
+lh card create <board-id> -l <list-id> -t <title> [-d description] [--priority <name|0-4>] [--label <name>...]
 lh card get <board-id> <card-id> [--json]
-lh card update <board-id> <card-id> [-t title] [-l list-id] [--due iso] [--completed] [--archived | --no-archived]
+lh card update <board-id> <card-id> [-t title] [-l list-id] [--due iso] [--completed] [--archived | --no-archived] [--priority <name|0-4>] [--label <name>...] [--remove-label <name>...]
 lh card comment <board-id> <card-id> -m <markdown> [--json]
 lh card comments <board-id> <card-id> [--json]
 lh card delete <board-id> <card-id>
+
+# Labels (a card's area; addressed by name or id)
+lh label ls <board-id>
+lh label create <board-id> <name> [-c color]
+lh label update <board-id> <label> [-n name] [-c color]
+lh label delete <board-id> <label>
 ```
 
 ### Page hierarchy
