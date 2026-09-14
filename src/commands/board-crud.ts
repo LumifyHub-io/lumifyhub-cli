@@ -277,7 +277,7 @@ async function cardGet(
       card,
       (c) => {
         console.log(chalk.bold(c.title));
-        console.log(chalk.gray(`${c.id}  list=${c.list_id}`));
+        console.log(chalk.gray(`${c.id}  list=${c.list_id}${c.archived_at ? "  archived" : ""}`));
         if (c.description) console.log("\n" + JSON.stringify(c.description, null, 2));
       },
       opts
@@ -297,6 +297,7 @@ async function cardUpdate(
     position?: string;
     due?: string;
     completed?: boolean;
+    archived?: boolean;
     json?: boolean;
   }
 ): Promise<void> {
@@ -311,6 +312,7 @@ async function cardUpdate(
   if (opts.position !== undefined) payload.position = Number(opts.position);
   if (opts.due !== undefined) payload.due_date = opts.due === "" ? null : opts.due;
   if (opts.completed !== undefined) payload.completed = opts.completed;
+  if (opts.archived !== undefined) payload.archived = opts.archived;
 
   if (Object.keys(payload).length === 0) {
     printError("Provide at least one field to update", opts);
@@ -339,6 +341,58 @@ async function cardDelete(
     printResult(result, () => console.log(chalk.green(`Deleted card ${cardId}`)), opts);
   } catch (err) {
     printError(err instanceof Error ? err.message : "Failed to delete card", opts);
+  }
+}
+
+async function cardComments(
+  boardId: string,
+  cardId: string,
+  opts: { json?: boolean }
+): Promise<void> {
+  if (!isAuthenticated()) {
+    printError("Not authenticated. Run 'lh login' first.", opts);
+    return;
+  }
+  try {
+    const comments = await api.getCardComments(boardId, cardId);
+    printResult(
+      comments,
+      (rows) => {
+        if (rows.length === 0) {
+          console.log(chalk.gray("No comments."));
+          return;
+        }
+        for (const c of rows) {
+          const who = c.user.name ?? c.user.email;
+          console.log(`${chalk.cyan(who)} ${chalk.gray(c.created_at)}${c.edited_at ? chalk.gray(" (edited)") : ""}`);
+          console.log(c.markdown + "\n");
+        }
+      },
+      opts
+    );
+  } catch (err) {
+    printError(err instanceof Error ? err.message : "Failed to list comments", opts);
+  }
+}
+
+async function cardComment(
+  boardId: string,
+  cardId: string,
+  opts: { message?: string; json?: boolean }
+): Promise<void> {
+  if (!isAuthenticated()) {
+    printError("Not authenticated. Run 'lh login' first.", opts);
+    return;
+  }
+  if (!opts.message || opts.message.trim() === "") {
+    printError("Provide the comment with -m <text>", opts);
+    return;
+  }
+  try {
+    const comment = await api.createCardComment(boardId, cardId, opts.message);
+    printResult(comment, (c) => console.log(chalk.green(`Commented on card ${c.card_id}`)), opts);
+  } catch (err) {
+    printError(err instanceof Error ? err.message : "Failed to comment", opts);
   }
 }
 
@@ -449,8 +503,23 @@ export function registerCardCommands(program: Command): void {
     .option("--due <date>", "Due date (ISO) or empty string to clear")
     .option("--completed", "Mark completed")
     .option("--no-completed", "Mark not completed")
+    .option("--archived", "Archive the card")
+    .option("--no-archived", "Unarchive the card")
     .option("--json", "Output JSON")
     .action(cardUpdate);
+
+  card
+    .command("comment <board-id> <card-id>")
+    .description("Comment on a card (markdown)")
+    .requiredOption("-m, --message <text>", "Comment text, as markdown")
+    .option("--json", "Output JSON")
+    .action(cardComment);
+
+  card
+    .command("comments <board-id> <card-id>")
+    .description("List a card's comments")
+    .option("--json", "Output JSON")
+    .action(cardComments);
 
   card
     .command("delete <board-id> <card-id>")

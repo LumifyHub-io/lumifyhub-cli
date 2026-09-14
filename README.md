@@ -156,7 +156,9 @@ lh list delete <board-id> <list-id>
 lh card list <board-id> [-l list-id] [--json]
 lh card create <board-id> -l <list-id> -t <title> [-d description]
 lh card get <board-id> <card-id> [--json]
-lh card update <board-id> <card-id> [-t title] [-l list-id] [--due iso] [--completed]
+lh card update <board-id> <card-id> [-t title] [-l list-id] [--due iso] [--completed] [--archived | --no-archived]
+lh card comment <board-id> <card-id> -m <markdown> [--json]
+lh card comments <board-id> <card-id> [--json]
 lh card delete <board-id> <card-id>
 ```
 
