@@ -208,16 +208,29 @@ async function listDelete(
 
 // ===== cards =====
 
+// `--priority 2` goes out as a number and `--priority high` as the name; the
+// server resolves both and 400s anything else, so nothing is validated here
+// that could drift from its list.
+function priorityInput(value: string): string | number {
+  return /^\d+$/.test(value) ? Number(value) : value;
+}
+
+function priorityColor(name: string): string {
+  if (name === "urgent") return chalk.red.bold(name);
+  if (name === "high") return chalk.yellow(name);
+  return chalk.gray(name);
+}
+
 async function cardList(
   boardId: string,
-  opts: { list?: string; json?: boolean }
+  opts: { list?: string; priority?: string; json?: boolean }
 ): Promise<void> {
   if (!isAuthenticated()) {
     printError("Not authenticated. Run 'lh login' first.", opts);
     return;
   }
   try {
-    const cards = await api.getCards(boardId, opts.list);
+    const cards = await api.getCards(boardId, opts.list, { priority: opts.priority });
     printResult(
       cards,
       (rows) => {
@@ -227,7 +240,10 @@ async function cardList(
         }
         for (const c of rows) {
           const list = c.list_name ? chalk.gray(`[${c.list_name}]`) : "";
-          console.log(`${chalk.cyan(c.id)}  ${c.title}  ${list}`);
+          const priority =
+            c.priority_name && c.priority_name !== "none" ? priorityColor(c.priority_name) : "";
+          const ticket = c.ticket ? chalk.gray(c.ticket) + "  " : "";
+          console.log(`${chalk.cyan(c.id)}  ${ticket}${priority ? priority + "  " : ""}${c.title}  ${list}`);
         }
       },
       opts
@@ -239,7 +255,14 @@ async function cardList(
 
 async function cardCreate(
   boardId: string,
-  opts: { list: string; title: string; description?: string; position?: string; json?: boolean }
+  opts: {
+    list: string;
+    title: string;
+    description?: string;
+    position?: string;
+    priority?: string;
+    json?: boolean;
+  }
 ): Promise<void> {
   if (!isAuthenticated()) {
     printError("Not authenticated. Run 'lh login' first.", opts);
@@ -251,6 +274,7 @@ async function cardCreate(
       title: opts.title,
       ...(opts.description !== undefined ? { description: opts.description } : {}),
       ...(opts.position !== undefined ? { position: Number(opts.position) } : {}),
+      ...(opts.priority !== undefined ? { priority: priorityInput(opts.priority) } : {}),
     });
     printResult(
       card,
@@ -298,6 +322,7 @@ async function cardUpdate(
     due?: string;
     completed?: boolean;
     archived?: boolean;
+    priority?: string;
     json?: boolean;
   }
 ): Promise<void> {
@@ -313,6 +338,7 @@ async function cardUpdate(
   if (opts.due !== undefined) payload.due_date = opts.due === "" ? null : opts.due;
   if (opts.completed !== undefined) payload.completed = opts.completed;
   if (opts.archived !== undefined) payload.archived = opts.archived;
+  if (opts.priority !== undefined) payload.priority = priorityInput(opts.priority);
 
   if (Object.keys(payload).length === 0) {
     printError("Provide at least one field to update", opts);
@@ -474,6 +500,7 @@ export function registerCardCommands(program: Command): void {
     .alias("ls")
     .description("List cards on a board")
     .option("-l, --list <list-id>", "Filter by list ID")
+    .option("--priority <names>", "Filter by priority: urgent,high,medium,low,none or 0-4, comma-separated")
     .option("--json", "Output JSON")
     .action(cardList);
 
@@ -484,6 +511,7 @@ export function registerCardCommands(program: Command): void {
     .requiredOption("-t, --title <title>", "Card title")
     .option("-d, --description <text>", "Description")
     .option("-p, --position <n>", "Position")
+    .option("--priority <name|0-4>", "urgent, high, medium, low, none (or 0-4)")
     .option("--json", "Output JSON")
     .action(cardCreate);
 
@@ -505,6 +533,7 @@ export function registerCardCommands(program: Command): void {
     .option("--no-completed", "Mark not completed")
     .option("--archived", "Archive the card")
     .option("--no-archived", "Unarchive the card")
+    .option("--priority <name|0-4>", "urgent, high, medium, low, none (or 0-4)")
     .option("--json", "Output JSON")
     .action(cardUpdate);
 

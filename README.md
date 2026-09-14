@@ -153,10 +153,10 @@ lh list update <board-id> <list-id> [-n name] [-p position] [--completed]
 lh list delete <board-id> <list-id>
 
 # Cards
-lh card list <board-id> [-l list-id] [--json]
-lh card create <board-id> -l <list-id> -t <title> [-d description]
+lh card list <board-id> [-l list-id] [--priority urgent,high] [--json]
+lh card create <board-id> -l <list-id> -t <title> [-d description] [--priority <name|0-4>]
 lh card get <board-id> <card-id> [--json]
-lh card update <board-id> <card-id> [-t title] [-l list-id] [--due iso] [--completed] [--archived | --no-archived]
+lh card update <board-id> <card-id> [-t title] [-l list-id] [--due iso] [--completed] [--archived | --no-archived] [--priority <name|0-4>]
 lh card comment <board-id> <card-id> -m <markdown> [--json]
 lh card comments <board-id> <card-id> [--json]
 lh card delete <board-id> <card-id>

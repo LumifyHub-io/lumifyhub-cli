@@ -10,6 +10,7 @@ import type {
   BoardSummary,
   BoardList,
   BoardCard,
+  CardPriorityInput,
   BoardCardComment,
   BoardWithDetails,
   CreatedDatabase,
@@ -482,14 +483,27 @@ class ApiClient {
 
   // ===== Direct CRUD: cards =====
 
-  async getCards(boardId: string, listId?: string): Promise<BoardCard[]> {
-    const qs = listId ? `?list_id=${encodeURIComponent(listId)}` : "";
+  async getCards(
+    boardId: string,
+    listId?: string,
+    filters: { priority?: string } = {}
+  ): Promise<BoardCard[]> {
+    const params = new URLSearchParams();
+    if (listId) params.set("list_id", listId);
+    if (filters.priority) params.set("priority", filters.priority);
+    const qs = params.toString() ? `?${params}` : "";
     return this.request<BoardCard[]>(`/boards/${boardId}/cards${qs}`);
   }
 
   async createCard(
     boardId: string,
-    payload: { list_id: string; title: string; description?: string; position?: number }
+    payload: {
+      list_id: string;
+      title: string;
+      description?: string;
+      position?: number;
+      priority?: CardPriorityInput;
+    }
   ): Promise<BoardCard> {
     return this.request<BoardCard>(`/boards/${boardId}/cards`, {
       method: "POST",
@@ -514,6 +528,7 @@ class ApiClient {
       completed: boolean;
       assigned_to: string | null;
       archived: boolean;
+      priority: CardPriorityInput;
     }>
   ): Promise<BoardCard> {
     return this.request<BoardCard>(`/boards/${boardId}/cards/${cardId}`, {

@@ -144,10 +144,17 @@ export interface BoardCard {
   due_date?: string | null;
   completed?: boolean;
   archived_at?: string | null;
+  // 0 none, 1 urgent, 2 high, 3 medium, 4 low. The server accepts either
+  // spelling on writes and answers both on reads.
+  priority?: number;
+  priority_name?: string;
+  ticket?: string | null;
   position?: number;
   created_at?: string;
   updated_at?: string;
 }
+
+export type CardPriorityInput = string | number;
 
 export interface BoardCardComment {
   id: string;
