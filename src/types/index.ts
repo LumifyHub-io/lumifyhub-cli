@@ -143,9 +143,22 @@ export interface BoardCard {
   labels?: string[];
   due_date?: string | null;
   completed?: boolean;
+  archived_at?: string | null;
   position?: number;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface BoardCardComment {
+  id: string;
+  card_id: string;
+  /** The stored TipTap document (or a bare string on old rows). */
+  content: unknown;
+  /** `content` rendered as markdown by the server. */
+  markdown: string;
+  user: { id: string; email: string; name: string | null };
+  edited_at: string | null;
+  created_at: string;
 }
 
 export interface BoardWithDetails extends BoardSummary {

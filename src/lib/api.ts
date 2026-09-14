@@ -10,6 +10,7 @@ import type {
   BoardSummary,
   BoardList,
   BoardCard,
+  BoardCardComment,
   BoardWithDetails,
   CreatedDatabase,
   DeletedResource,
@@ -512,11 +513,28 @@ class ApiClient {
       due_date: string | null;
       completed: boolean;
       assigned_to: string | null;
+      archived: boolean;
     }>
   ): Promise<BoardCard> {
     return this.request<BoardCard>(`/boards/${boardId}/cards/${cardId}`, {
       method: "PUT",
       body: JSON.stringify(payload),
+    });
+  }
+
+  async getCardComments(boardId: string, cardId: string): Promise<BoardCardComment[]> {
+    return this.request<BoardCardComment[]>(`/boards/${boardId}/cards/${cardId}/comments`);
+  }
+
+  /** `content` is markdown; the server stores it as a document. */
+  async createCardComment(
+    boardId: string,
+    cardId: string,
+    content: string
+  ): Promise<BoardCardComment> {
+    return this.request<BoardCardComment>(`/boards/${boardId}/cards/${cardId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
     });
   }
 
