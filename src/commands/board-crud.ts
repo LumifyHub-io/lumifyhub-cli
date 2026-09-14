@@ -209,6 +209,89 @@ async function listDelete(
   }
 }
 
+// ===== labels =====
+
+// Commander hands a repeatable option its previous value.
+function collect(value: string, previous: string[] = []): string[] {
+  return [...previous, value];
+}
+
+async function labelList(boardId: string, opts: { json?: boolean }): Promise<void> {
+  if (!isAuthenticated()) {
+    printError("Not authenticated. Run 'lh login' first.", opts);
+    return;
+  }
+  try {
+    const labels = await api.getLabels(boardId);
+    printResult(
+      labels,
+      (rows) => {
+        if (rows.length === 0) {
+          console.log(chalk.gray("No labels."));
+          return;
+        }
+        for (const l of rows) {
+          console.log(`${chalk.cyan(l.id)}  ${l.name ?? chalk.gray("(no name)")}  ${chalk.gray(l.color)}`);
+        }
+      },
+      opts
+    );
+  } catch (err) {
+    printError(err instanceof Error ? err.message : "Failed to list labels", opts);
+  }
+}
+
+async function labelCreate(
+  boardId: string,
+  name: string,
+  opts: { color?: string; json?: boolean }
+): Promise<void> {
+  if (!isAuthenticated()) {
+    printError("Not authenticated. Run 'lh login' first.", opts);
+    return;
+  }
+  try {
+    const label = await api.createLabel(boardId, { name, ...(opts.color ? { color: opts.color } : {}) });
+    printResult(label, (l) => console.log(`${chalk.green("Created label")} ${chalk.cyan(l.id)}: ${l.name}`), opts);
+  } catch (err) {
+    printError(err instanceof Error ? err.message : "Failed to create label", opts);
+  }
+}
+
+async function labelUpdate(
+  boardId: string,
+  label: string,
+  opts: { name?: string; color?: string; json?: boolean }
+): Promise<void> {
+  if (!isAuthenticated()) {
+    printError("Not authenticated. Run 'lh login' first.", opts);
+    return;
+  }
+  if (opts.name === undefined && opts.color === undefined) {
+    printError("Provide --name or --color", opts);
+    return;
+  }
+  try {
+    const updated = await api.updateLabel(boardId, label, { name: opts.name, color: opts.color });
+    printResult(updated, (l) => console.log(chalk.green(`Updated label ${l.name}`)), opts);
+  } catch (err) {
+    printError(err instanceof Error ? err.message : "Failed to update label", opts);
+  }
+}
+
+async function labelDelete(boardId: string, label: string, opts: { json?: boolean }): Promise<void> {
+  if (!isAuthenticated()) {
+    printError("Not authenticated. Run 'lh login' first.", opts);
+    return;
+  }
+  try {
+    const result = await api.deleteLabel(boardId, label);
+    printResult(result, () => console.log(chalk.green(`Deleted label ${label} and took it off its cards`)), opts);
+  } catch (err) {
+    printError(err instanceof Error ? err.message : "Failed to delete label", opts);
+  }
+}
+
 // ===== cards =====
 
 // `--priority 2` goes out as a number and `--priority high` as the name; the
@@ -264,6 +347,7 @@ async function cardCreate(
     description?: string;
     position?: string;
     priority?: string;
+    label?: string[];
     json?: boolean;
   }
 ): Promise<void> {
@@ -278,6 +362,7 @@ async function cardCreate(
       ...(opts.description !== undefined ? { description: opts.description } : {}),
       ...(opts.position !== undefined ? { position: Number(opts.position) } : {}),
       ...(opts.priority !== undefined ? { priority: priorityInput(opts.priority) } : {}),
+      ...(opts.label?.length ? { labels: opts.label } : {}),
     });
     printResult(
       card,
@@ -326,6 +411,8 @@ async function cardUpdate(
     completed?: boolean;
     archived?: boolean;
     priority?: string;
+    label?: string[];
+    removeLabel?: string[];
     json?: boolean;
   }
 ): Promise<void> {
@@ -342,6 +429,8 @@ async function cardUpdate(
   if (opts.completed !== undefined) payload.completed = opts.completed;
   if (opts.archived !== undefined) payload.archived = opts.archived;
   if (opts.priority !== undefined) payload.priority = priorityInput(opts.priority);
+  if (opts.label?.length) payload.add_labels = opts.label;
+  if (opts.removeLabel?.length) payload.remove_labels = opts.removeLabel;
 
   if (Object.keys(payload).length === 0) {
     printError("Provide at least one field to update", opts);
@@ -517,6 +606,7 @@ export function registerCardCommands(program: Command): void {
     .option("-d, --description <text>", "Description")
     .option("-p, --position <n>", "Position")
     .option("--priority <name|0-4>", "urgent, high, medium, low, none (or 0-4)")
+    .option("--label <name>", "Label by name or id (repeatable)", collect)
     .option("--json", "Output JSON")
     .action(cardCreate);
 
@@ -539,6 +629,8 @@ export function registerCardCommands(program: Command): void {
     .option("--archived", "Archive the card")
     .option("--no-archived", "Unarchive the card")
     .option("--priority <name|0-4>", "urgent, high, medium, low, none (or 0-4)")
+    .option("--label <name>", "Add a label, by name or id (repeatable)", collect)
+    .option("--remove-label <name>", "Remove a label, by name or id (repeatable)", collect)
     .option("--json", "Output JSON")
     .action(cardUpdate);
 
@@ -561,4 +653,37 @@ export function registerCardCommands(program: Command): void {
     .description("Soft-delete a card")
     .option("--json", "Output JSON")
     .action(cardDelete);
+}
+
+export function registerLabelCommands(program: Command): void {
+  const label = program.command("label").description("Manage a board's labels (a card's area)");
+
+  label
+    .command("ls <board-id>")
+    .alias("list")
+    .description("List a board's labels")
+    .option("--json", "Output JSON")
+    .action(labelList);
+
+  label
+    .command("create <board-id> <name>")
+    .description("Create a label")
+    .option("-c, --color <color>", "Colour (default gray)")
+    .option("--json", "Output JSON")
+    .action(labelCreate);
+
+  label
+    .command("update <board-id> <label>")
+    .description("Rename or recolour a label, addressed by name or id")
+    .option("-n, --name <name>", "New name")
+    .option("-c, --color <color>", "New colour")
+    .option("--json", "Output JSON")
+    .action(labelUpdate);
+
+  label
+    .command("delete <board-id> <label>")
+    .alias("rm")
+    .description("Delete a label and take it off every card")
+    .option("--json", "Output JSON")
+    .action(labelDelete);
 }

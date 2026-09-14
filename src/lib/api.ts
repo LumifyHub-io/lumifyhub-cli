@@ -10,6 +10,7 @@ import type {
   BoardSummary,
   BoardList,
   BoardCard,
+  BoardLabel,
   CardPriorityInput,
   BoardCardComment,
   BoardWithDetails,
@@ -481,6 +482,37 @@ class ApiClient {
     });
   }
 
+  // ===== Direct CRUD: labels =====
+
+  async getLabels(boardId: string): Promise<BoardLabel[]> {
+    return this.request<BoardLabel[]>(`/boards/${boardId}/labels`);
+  }
+
+  async createLabel(boardId: string, payload: { name: string; color?: string }): Promise<BoardLabel> {
+    return this.request<BoardLabel>(`/boards/${boardId}/labels`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // `label` is an id or a name; the server resolves either.
+  async updateLabel(
+    boardId: string,
+    label: string,
+    payload: { name?: string; color?: string }
+  ): Promise<BoardLabel> {
+    return this.request<BoardLabel>(`/boards/${boardId}/labels/${encodeURIComponent(label)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteLabel(boardId: string, label: string): Promise<DeletedResource> {
+    return this.request<DeletedResource>(`/boards/${boardId}/labels/${encodeURIComponent(label)}`, {
+      method: "DELETE",
+    });
+  }
+
   // ===== Direct CRUD: cards =====
 
   async getCards(
@@ -503,6 +535,7 @@ class ApiClient {
       description?: string;
       position?: number;
       priority?: CardPriorityInput;
+      labels?: string[];
     }
   ): Promise<BoardCard> {
     return this.request<BoardCard>(`/boards/${boardId}/cards`, {
@@ -529,6 +562,8 @@ class ApiClient {
       assigned_to: string | null;
       archived: boolean;
       priority: CardPriorityInput;
+      add_labels: string[];
+      remove_labels: string[];
     }>
   ): Promise<BoardCard> {
     return this.request<BoardCard>(`/boards/${boardId}/cards/${cardId}`, {

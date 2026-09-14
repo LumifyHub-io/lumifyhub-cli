@@ -159,6 +159,18 @@ export interface BoardCard {
 
 export type CardPriorityInput = string | number;
 
+// A card's area. `BoardCard.labels` holds these ids; every write that takes
+// labels takes names too.
+export interface BoardLabel {
+  id: string;
+  board_id: string;
+  name: string | null;
+  color: string;
+  sort_order: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface BoardCardComment {
   id: string;
   card_id: string;
