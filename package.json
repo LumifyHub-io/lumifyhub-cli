@@ -1,6 +1,6 @@
 {
   "name": "lumifyhub-cli",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "CLI tool for LumifyHub - sync and manage your pages locally as markdown files",
   "type": "module",
   "bin": {
