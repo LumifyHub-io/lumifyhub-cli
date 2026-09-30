@@ -45,6 +45,7 @@ interface BoardCreateOpts {
   workspace: string;
   parentId?: string;
   private?: boolean;
+  prefix?: string;
   json?: boolean;
 }
 
@@ -61,6 +62,7 @@ async function boardCreate(title: string, opts: BoardCreateOpts): Promise<void> 
     const board = await api.createBoard(title, opts.workspace, {
       parentId: opts.parentId,
       isPrivate: opts.private,
+      ticketPrefix: opts.prefix,
     });
     printResult(
       board,
@@ -533,6 +535,7 @@ export function registerBoardCommands(program: Command): void {
     .requiredOption("-w, --workspace <slug>", "Workspace slug")
     .option("--parent-id <id>", "Parent page ID")
     .option("--private", "Private board")
+    .option("--prefix <PREFIX>", "Ticket prefix, e.g. PBUG (default: derived from the title)")
     .option("--json", "Output JSON")
     .action(boardCreate);
 

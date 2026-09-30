@@ -428,7 +428,7 @@ class ApiClient {
   async createBoard(
     title: string,
     workspaceSlug: string,
-    options: { parentId?: string; isPrivate?: boolean } = {}
+    options: { parentId?: string; isPrivate?: boolean; ticketPrefix?: string } = {}
   ): Promise<BoardSummary> {
     return this.request<BoardSummary>(`/boards`, {
       method: "POST",
@@ -437,6 +437,7 @@ class ApiClient {
         workspace_slug: workspaceSlug,
         ...(options.parentId ? { parent_id: options.parentId } : {}),
         ...(options.isPrivate ? { is_private: true } : {}),
+        ...(options.ticketPrefix ? { ticket_prefix: options.ticketPrefix } : {}),
       }),
     });
   }
