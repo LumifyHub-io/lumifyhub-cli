@@ -157,6 +157,8 @@ lh card list <board-id> [-l list-id] [--priority urgent,high] [--json]
 lh card create <board-id> -l <list-id> -t <title> [-d description] [--priority <name|0-4>] [--label <name>...]
 lh card get <board-id> <card-id> [--json]
 lh card update <board-id> <card-id> [-t title] [-l list-id] [--due iso] [--completed] [--archived | --no-archived] [--priority <name|0-4>] [--label <name>...] [--remove-label <name>...]
+           [--blocked-by <ticket|id>...] [--unblock <ticket|id>...]
+lh card deps <board-id> <card-id>        # what blocks it, and what it blocks
 lh card comment <board-id> <card-id> -m <markdown> [--json]
 lh card comments <board-id> <card-id> [--json]
 lh card delete <board-id> <card-id>

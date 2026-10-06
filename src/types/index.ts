@@ -153,8 +153,20 @@ export interface BoardCard {
   priority_name?: string;
   ticket?: string | null;
   position?: number;
+  parent_id?: string | null;
+  project?: { id: string; name: string } | null;
+  // What must be done before this card can start.
+  blocked_by?: DependencyCard[];
   created_at?: string;
   updated_at?: string;
+}
+
+export interface DependencyCard {
+  id: string;
+  ticket: string | null;
+  title: string;
+  list_id: string | null;
+  completed: boolean;
 }
 
 export type CardPriorityInput = string | number;

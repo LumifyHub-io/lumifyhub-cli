@@ -10,6 +10,7 @@ import type {
   BoardSummary,
   BoardList,
   BoardCard,
+  DependencyCard,
   BoardLabel,
   CardPriorityInput,
   BoardCardComment,
@@ -549,6 +550,29 @@ class ApiClient {
     return this.request<BoardCard>(`/boards/${boardId}/cards/${cardId}`);
   }
 
+  // The dependency endpoints answer without a `data` envelope — they are the
+  // contract AgentOS reads (lumifyhub-rails docs/agentos-contract.md).
+  async getCardDependencies(
+    boardId: string,
+    cardId: string
+  ): Promise<{ blocked_by: DependencyCard[]; blocks: DependencyCard[] }> {
+    return this.requestRaw(`/boards/${boardId}/cards/${cardId}/dependencies`);
+  }
+
+  // `blockedBy` is a card id or a ticket on the same board.
+  async addCardDependency(boardId: string, cardId: string, blockedBy: string): Promise<void> {
+    await this.requestRaw(`/boards/${boardId}/cards/${cardId}/dependencies`, {
+      method: "POST",
+      body: JSON.stringify({ blocked_by: blockedBy }),
+    });
+  }
+
+  async removeCardDependency(boardId: string, cardId: string, blockedByCardId: string): Promise<void> {
+    await this.requestRaw(`/boards/${boardId}/cards/${cardId}/dependencies/${blockedByCardId}`, {
+      method: "DELETE",
+    });
+  }
+
   async updateCard(
     boardId: string,
     cardId: string,
@@ -731,6 +755,10 @@ class ApiClient {
   // ===== Internal helpers =====
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    return (await this.requestRaw<ApiResponse<T>>(path, init)).data;
+  }
+
+  private async requestRaw<T>(path: string, init: RequestInit = {}): Promise<T> {
     const response = await fetch(`${this.getBaseUrl()}${path}`, {
       ...init,
       headers: { ...this.getHeaders(), ...(init.headers || {}) },
@@ -741,8 +769,7 @@ class ApiClient {
       throw new Error(err.error || `${init.method ?? "GET"} ${path} failed: ${response.statusText}`);
     }
 
-    const json = (await response.json()) as ApiResponse<T>;
-    return json.data;
+    return (await response.json()) as T;
   }
 }
 

@@ -8,6 +8,7 @@ import chalk from "chalk";
 import { isAuthenticated } from "../lib/config.js";
 import { api } from "../lib/api.js";
 import { printResult, printError } from "../lib/output.js";
+import type { DependencyCard } from "../types/index.js";
 
 // ===== boards =====
 
@@ -392,6 +393,10 @@ async function cardGet(
       (c) => {
         console.log(chalk.bold(c.title));
         console.log(chalk.gray(`${c.id}  list=${c.list_id}${c.archived_at ? "  archived" : ""}`));
+        if (c.blocked_by?.length) {
+          const open = c.blocked_by.map((b) => `${b.ticket ?? b.id}${b.completed ? " ✓" : ""}`).join(", ");
+          console.log(chalk.yellow(`blocked by: ${open}`));
+        }
         if (c.description) console.log("\n" + JSON.stringify(c.description, null, 2));
       },
       opts
@@ -415,6 +420,8 @@ async function cardUpdate(
     priority?: string;
     label?: string[];
     removeLabel?: string[];
+    blockedBy?: string[];
+    unblock?: string[];
     json?: boolean;
   }
 ): Promise<void> {
@@ -434,16 +441,54 @@ async function cardUpdate(
   if (opts.label?.length) payload.add_labels = opts.label;
   if (opts.removeLabel?.length) payload.remove_labels = opts.removeLabel;
 
-  if (Object.keys(payload).length === 0) {
+  const blockedBy = opts.blockedBy ?? [];
+  const unblock = opts.unblock ?? [];
+  if (Object.keys(payload).length === 0 && !blockedBy.length && !unblock.length) {
     printError("Provide at least one field to update", opts);
     return;
   }
 
   try {
-    const card = await api.updateCard(boardId, cardId, payload);
+    if (Object.keys(payload).length) await api.updateCard(boardId, cardId, payload);
+    for (const ref of blockedBy) await api.addCardDependency(boardId, cardId, ref);
+    if (unblock.length) {
+      // DELETE takes the blocker's id; a ticket is matched against what
+      // already blocks this card.
+      const { blocked_by } = await api.getCardDependencies(boardId, cardId);
+      for (const ref of unblock) {
+        const match = blocked_by.find((b) => b.id === ref || b.ticket?.toLowerCase() === ref.toLowerCase());
+        if (!match) throw new Error(`${ref} does not block this card`);
+        await api.removeCardDependency(boardId, cardId, match.id);
+      }
+    }
+    const card = await api.getCard(boardId, cardId);
     printResult(card, (c) => console.log(chalk.green(`Updated card ${c.id}`)), opts);
   } catch (err) {
     printError(err instanceof Error ? err.message : "Failed to update card", opts);
+  }
+}
+
+async function cardDeps(boardId: string, cardId: string, opts: { json?: boolean }): Promise<void> {
+  if (!isAuthenticated()) {
+    printError("Not authenticated. Run 'lh login' first.", opts);
+    return;
+  }
+  try {
+    const deps = await api.getCardDependencies(boardId, cardId);
+    printResult(
+      deps,
+      (d) => {
+        const line = (c: DependencyCard) =>
+          `  ${c.completed ? chalk.green("✓") : chalk.yellow("○")} ${c.ticket ?? c.id}  ${c.title}`;
+        console.log(chalk.bold("Blocked by"));
+        console.log(d.blocked_by.length ? d.blocked_by.map(line).join("\n") : chalk.gray("  nothing"));
+        console.log(chalk.bold("Blocks"));
+        console.log(d.blocks.length ? d.blocks.map(line).join("\n") : chalk.gray("  nothing"));
+      },
+      opts
+    );
+  } catch (err) {
+    printError(err instanceof Error ? err.message : "Failed to get dependencies", opts);
   }
 }
 
@@ -634,8 +679,16 @@ export function registerCardCommands(program: Command): void {
     .option("--priority <name|0-4>", "urgent, high, medium, low, none (or 0-4)")
     .option("--label <name>", "Add a label, by name or id (repeatable)", collect)
     .option("--remove-label <name>", "Remove a label, by name or id (repeatable)", collect)
+    .option("--blocked-by <ticket|id>", "Card on this board that must be done first (repeatable)", collect)
+    .option("--unblock <ticket|id>", "Stop a card blocking this one (repeatable)", collect)
     .option("--json", "Output JSON")
     .action(cardUpdate);
+
+  card
+    .command("deps <board-id> <card-id>")
+    .description("Show what blocks a card and what it blocks")
+    .option("--json", "Output JSON")
+    .action(cardDeps);
 
   card
     .command("comment <board-id> <card-id>")
