@@ -274,3 +274,12 @@ export interface ViewSettings {
   sorts?: ViewSort[];
   boardSettings?: ViewBoardSettings;
 }
+
+export interface FileInfo {
+  id: string;
+  original_filename: string | null;
+  content_type: string | null;
+  size: number | null;
+  storage_type: string;
+  workspace_id: string;
+}

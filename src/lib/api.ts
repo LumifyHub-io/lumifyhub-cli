@@ -1,5 +1,5 @@
 import { getConfig } from "./config.js";
-import { CLIENT_HEADER } from "./version.js";
+import { CLIENT_HEADER, USER_AGENT } from "./version.js";
 import type {
   Page,
   Workspace,
@@ -24,6 +24,7 @@ import type {
   ViewFilter,
   ViewSort,
   ViewBoardSettings,
+  FileInfo,
 } from "../types/index.js";
 
 /** `--parent root` — top-level pages, the ones with no parent. */
@@ -41,6 +42,8 @@ class ApiClient {
       Authorization: `Bearer ${config.token}`,
       // Provenance: the server stamps "via lh/<version>" on what we create.
       "X-LumifyHub-Client": CLIENT_HEADER,
+      // Cloudflare rejects the runtime's default agent.
+      "User-Agent": USER_AGENT,
     };
   }
 
@@ -750,6 +753,38 @@ class ApiClient {
       method: "DELETE",
       body: JSON.stringify({ related_row_id: relatedRowId }),
     });
+  }
+
+  // ===== Files =====
+
+  async getFileInfo(id: string): Promise<FileInfo> {
+    return this.request<FileInfo>(`/files/${id}`);
+  }
+
+  /**
+   * The raw route is a 302 to a signed CDN URL. It is followed by hand so the
+   * bearer token goes to LumifyHub only: the signature is the CDN's
+   * authorisation, and a token sent along would leak to a third-party host.
+   */
+  async downloadFile(id: string): Promise<{ bytes: Buffer; contentType: string | null }> {
+    const first = await fetch(`${this.getBaseUrl()}/files/${id}/raw`, {
+      headers: this.getHeaders(),
+      redirect: "manual",
+    });
+    if (first.status < 300 || first.status >= 400) {
+      const err = await first.json().catch(() => ({}));
+      throw new Error(
+        err.error || (first.status === 404 ? "File not found" : `Failed to fetch file: ${first.status} ${first.statusText}`)
+      );
+    }
+    const location = first.headers.get("location");
+    if (!location) throw new Error("File redirect had no Location");
+
+    const cdn = await fetch(new URL(location, this.getBaseUrl()), {
+      headers: { "User-Agent": USER_AGENT },
+    });
+    if (!cdn.ok) throw new Error(`Failed to download file: ${cdn.status} ${cdn.statusText}`);
+    return { bytes: Buffer.from(await cdn.arrayBuffer()), contentType: cdn.headers.get("content-type") };
   }
 
   // ===== Internal helpers =====

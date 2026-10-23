@@ -163,6 +163,10 @@ lh card comment <board-id> <card-id> -m <markdown> [--json]
 lh card comments <board-id> <card-id> [--json]
 lh card delete <board-id> <card-id>
 
+# Files (an image in a card description: pass its id, /api/files/<id>/raw path or URL)
+lh file get <id|path|url> [-o <path>|-] [--json]   # download; default ./<original filename>
+lh file info <id|path|url> [--json]
+
 # Labels (a card's area; addressed by name or id)
 lh label ls <board-id>
 lh label create <board-id> <name> [-c color]
