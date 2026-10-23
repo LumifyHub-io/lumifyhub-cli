@@ -23,6 +23,7 @@ import {
 } from "./commands/board-crud.js";
 import { registerViewCommands } from "./commands/view-crud.js";
 import { registerSourceCommands } from "./commands/source-crud.js";
+import { registerFileCommands } from "./commands/file.js";
 
 const program = new Command();
 
@@ -164,5 +165,6 @@ registerCardCommands(program);
 registerLabelCommands(program);
 registerViewCommands(program);
 registerSourceCommands(program);
+registerFileCommands(program);
 
 program.parse();

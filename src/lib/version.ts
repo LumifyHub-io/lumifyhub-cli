@@ -9,3 +9,6 @@
 export const VERSION: string = __LH_VERSION__;
 export const CLIENT_NAME = "lh";
 export const CLIENT_HEADER = `${CLIENT_NAME}/${VERSION}`;
+
+/** Cloudflare rejects fetch's default agent, so every request names itself. */
+export const USER_AGENT = `lumifyhub-cli/${VERSION} (+https://github.com/LumifyHub-io/lumifyhub-cli)`;
