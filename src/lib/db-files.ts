@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSy
 import { join } from "path";
 import { homedir } from "os";
 import type { DatabaseSchema, DatabaseRow, PropertyMeta, DataSourceMeta, DatabaseSyncStatus } from "../types/index.js";
+import { cellToString } from "./output.js";
 
 const DEFAULT_DATABASES_DIR = join(homedir(), ".lumifyhub", "databases");
 
@@ -394,7 +395,7 @@ export function writeDatabaseRows(dbPath: string, rows: DatabaseRow[], propertie
     const record: Record<string, string> = {};
     for (const col of columns) {
       const value = row[col];
-      record[col] = value === null || value === undefined ? "" : String(value);
+      record[col] = cellToString(value);
     }
     return record;
   });
@@ -553,17 +554,10 @@ export function apiRowToLocal(
     _data_source_id: apiRow.data_source_id,
   };
 
-  // Convert property values to strings
+  // Stringify at this edge: the API returns typed JSON values
   for (const prop of properties) {
     const value = apiRow.properties?.[prop.property_id];
-    if (value === null || value === undefined) {
-      row[prop.property_id] = null;
-    } else if (typeof value === "object") {
-      // For complex types (arrays, objects), JSON stringify
-      row[prop.property_id] = JSON.stringify(value);
-    } else {
-      row[prop.property_id] = String(value);
-    }
+    row[prop.property_id] = value === null || value === undefined ? null : cellToString(value);
   }
 
   return row;
