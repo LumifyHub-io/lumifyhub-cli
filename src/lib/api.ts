@@ -348,6 +348,7 @@ class ApiClient {
       relation_property_id?: string;
       target_property_id?: string;
       aggregation?: string;
+      config?: Record<string, unknown>;
     }
   ): Promise<{
     property_id: string;
@@ -368,6 +369,7 @@ class ApiClient {
       name?: string;
       type?: string;
       options?: Array<string | { id?: string; name: string; color?: string }>;
+      config?: Record<string, unknown>;
     }
   ): Promise<unknown> {
     return this.request(`/databases/${databaseId}/properties/${propertyId}`, {
@@ -630,7 +632,7 @@ class ApiClient {
 
   async createView(
     databaseId: string,
-    payload: { name: string; type: "table" | "board" | "form"; data_source_id: string; sort_order?: number }
+    payload: { name: string; type: "table" | "board" | "form"; data_source_id: string; sort_order?: number; settings?: Record<string, unknown> }
   ): Promise<DatabaseView> {
     return this.request<DatabaseView>(`/databases/${databaseId}/views`, {
       method: "POST",
@@ -641,7 +643,7 @@ class ApiClient {
   async updateView(
     databaseId: string,
     viewId: string,
-    payload: { name?: string; type?: "table" | "board" | "form"; data_source_id?: string; sort_order?: number }
+    payload: { name?: string; type?: "table" | "board" | "form"; data_source_id?: string; sort_order?: number; settings?: Record<string, unknown> }
   ): Promise<DatabaseView> {
     return this.request<DatabaseView>(`/databases/${databaseId}/views/${viewId}`, {
       method: "PUT",

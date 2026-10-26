@@ -11,7 +11,7 @@ import chalk from "chalk";
 import { randomUUID } from "crypto";
 import { isAuthenticated } from "../lib/config.js";
 import { api } from "../lib/api.js";
-import { printResult, printError, collect } from "../lib/output.js";
+import { printResult, printError, collect, parseJsonObjectFlag } from "../lib/output.js";
 import type { ViewFilter } from "../types/index.js";
 
 async function viewList(databaseId: string, opts: { json?: boolean }): Promise<void> {
@@ -33,17 +33,26 @@ interface ViewCreateOpts {
   type: "table" | "board" | "form";
   dataSourceId: string;
   sortOrder?: number;
+  settings?: string;
   json?: boolean;
 }
 
 async function viewCreate(databaseId: string, name: string, opts: ViewCreateOpts): Promise<void> {
   if (!isAuthenticated()) { printError("Not authenticated. Run 'lh login' first.", opts); return; }
+  let settings: Record<string, unknown> | undefined;
+  try {
+    if (opts.settings !== undefined) settings = parseJsonObjectFlag("--settings", opts.settings);
+  } catch (err) {
+    printError(err instanceof Error ? err.message : "Invalid --settings", opts);
+    return;
+  }
   try {
     const view = await api.createView(databaseId, {
       name,
       type: opts.type,
       data_source_id: opts.dataSourceId,
       ...(opts.sortOrder !== undefined ? { sort_order: opts.sortOrder } : {}),
+      ...(settings ? { settings } : {}),
     });
     printResult(view, (v) =>
       console.log(`${chalk.green("Created view")} ${chalk.cyan(v.id)}: ${chalk.bold(v.view_name)} [${v.view_type}]`),
@@ -58,6 +67,7 @@ interface ViewUpdateOpts {
   type?: "table" | "board" | "form";
   dataSourceId?: string;
   sortOrder?: number;
+  settings?: string;
   json?: boolean;
 }
 
@@ -68,6 +78,14 @@ async function viewUpdate(databaseId: string, viewId: string, opts: ViewUpdateOp
   if (opts.type) payload.type = opts.type;
   if (opts.dataSourceId) payload.data_source_id = opts.dataSourceId;
   if (opts.sortOrder !== undefined) payload.sort_order = opts.sortOrder;
+  if (opts.settings !== undefined) {
+    try {
+      payload.settings = parseJsonObjectFlag("--settings", opts.settings);
+    } catch (err) {
+      printError(err instanceof Error ? err.message : "Invalid --settings", opts);
+      return;
+    }
+  }
   if (Object.keys(payload).length === 0) { printError("Provide at least one field to update", opts); return; }
   try {
     const view = await api.updateView(databaseId, viewId, payload);
@@ -211,6 +229,10 @@ export function registerViewCommands(program: Command): void {
     .requiredOption("-t, --type <type>", "View type: table|board|form")
     .requiredOption("-s, --data-source-id <id>", "Data source UUID this view displays")
     .option("--sort-order <n>", "Sort order (integer)", (v) => parseInt(v, 10))
+    .option(
+      "--settings <json>",
+      "View settings JSON (filters, sorts, chartSettings, boardSettings, ...)"
+    )
     .option("--json", "Output JSON")
     .action(viewCreate);
 
@@ -221,6 +243,10 @@ export function registerViewCommands(program: Command): void {
     .option("-t, --type <type>", "New view type: table|board|form")
     .option("-s, --data-source-id <id>", "New data source UUID")
     .option("--sort-order <n>", "New sort order", (v) => parseInt(v, 10))
+    .option(
+      "--settings <json>",
+      "View settings JSON (filters, sorts, chartSettings, boardSettings, ...)"
+    )
     .option("--json", "Output JSON")
     .action(viewUpdate);
 

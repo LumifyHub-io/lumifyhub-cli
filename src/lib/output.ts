@@ -75,6 +75,23 @@ function parseScalar(raw: string): unknown {
 }
 
 /**
+ * Parse a JSON-object flag value (--config, --settings). Throws a readable
+ * error on invalid JSON or a non-object.
+ */
+export function parseJsonObjectFlag(flag: string, raw: string): Record<string, unknown> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`Invalid JSON for ${flag}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${flag} must be a JSON object, e.g. '{"key":"value"}'`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+/**
  * Commander `.option()` collector for repeatable flags. Use as:
  *   .option("--prop <kv...>", "Property", collect, [])
  */

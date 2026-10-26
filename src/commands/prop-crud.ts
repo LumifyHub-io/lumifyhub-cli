@@ -10,7 +10,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { isAuthenticated } from "../lib/config.js";
 import { api } from "../lib/api.js";
-import { printResult, printError, collect } from "../lib/output.js";
+import { printResult, printError, collect, parseJsonObjectFlag } from "../lib/output.js";
 
 interface PropCreateOpts {
   type: string;
@@ -26,6 +26,7 @@ interface PropCreateOpts {
   relationPropertyId?: string;
   targetPropertyId?: string;
   aggregation?: string;
+  config?: string;
   json?: boolean;
 }
 
@@ -35,12 +36,21 @@ async function propCreate(databaseId: string, name: string, opts: PropCreateOpts
     return;
   }
 
+  let config: Record<string, unknown> | undefined;
+  try {
+    if (opts.config !== undefined) config = parseJsonObjectFlag("--config", opts.config);
+  } catch (err) {
+    printError(err instanceof Error ? err.message : "Invalid --config", opts);
+    return;
+  }
+
   try {
     const payload: Parameters<typeof api.createProperty>[1] = {
       name,
       type: opts.type,
       ...(opts.dataSourceId ? { data_source_id: opts.dataSourceId } : {}),
       ...(opts.option.length > 0 ? { options: opts.option } : {}),
+      ...(config ? { config } : {}),
     };
 
     if (opts.type === "formula") {
@@ -86,6 +96,7 @@ interface PropUpdateOpts {
   name?: string;
   type?: string;
   option: string[];
+  config?: string;
   json?: boolean;
 }
 
@@ -104,8 +115,17 @@ async function propUpdate(
   if (opts.type !== undefined) payload.type = opts.type;
   if (opts.option && opts.option.length > 0) payload.options = opts.option;
 
+  if (opts.config !== undefined) {
+    try {
+      payload.config = parseJsonObjectFlag("--config", opts.config);
+    } catch (err) {
+      printError(err instanceof Error ? err.message : "Invalid --config", opts);
+      return;
+    }
+  }
+
   if (Object.keys(payload).length === 0) {
-    printError("Provide --name, --type, or --option", opts);
+    printError("Provide --name, --type, --option, or --config", opts);
     return;
   }
 
@@ -156,12 +176,16 @@ export function registerPropertyCommands(program: Command): void {
     .option("--relation-property-id <id>", "Relation property ID (required for rollup type)")
     .option("--target-property-id <id>", "Target property ID to aggregate (required for rollup type)")
     .option("--aggregation <fn>", "Aggregation function: count|sum|avg|min|max (required for rollup type)")
+    .option(
+      "--config <json>",
+      'Property config JSON merged into the property, e.g. \'{"format":"currency","currency":"USD","decimalPlaces":2}\''
+    )
     .option("--json", "Output JSON")
     .action(propCreate);
 
   prop
     .command("update <db-id> <prop-id>")
-    .description("Update a property's name, type, or options")
+    .description("Update a property's name, type, options, or config")
     .option("-n, --name <name>", "New display name")
     .option("-t, --type <type>", "New property type")
     .option(
@@ -169,6 +193,10 @@ export function registerPropertyCommands(program: Command): void {
       "Replace options list with these (repeatable)",
       collect,
       []
+    )
+    .option(
+      "--config <json>",
+      'Property config JSON merged into the property, e.g. \'{"format":"currency","currency":"USD","decimalPlaces":2}\''
     )
     .option("--json", "Output JSON")
     .action(propUpdate);

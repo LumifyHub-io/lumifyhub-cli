@@ -140,6 +140,13 @@ lh row create <db-id> -t <title> [--prop key=value ...] [-d data-source-id]
 lh row update <db-id> <row-id> [-t title] [--prop key=value ...] [-d data-source-id]
 lh row delete <db-id> <row-id>
 
+# Properties and views
+lh prop create <db-id> <name> -t <type> [--option <name>...] [--config '<json>']
+lh prop update <db-id> <prop-id> [-n name] [-t type] [--option <name>...] [--config '<json>']
+lh prop delete <db-id> <prop-id>
+lh view create <db-id> <name> -t table|board|form -s <data-source-id> [--settings '<json>']
+lh view update <db-id> <view-id> [-n name] [-t type] [--settings '<json>']
+
 # Boards (Kanban)
 lh board list [-w workspace] [--json]
 lh board create <title> -w <workspace> [--private]
@@ -210,7 +217,14 @@ timeline. `lh --version` prints the same value.
 
 `--prop key=value` accepts plain strings, numbers, booleans, JSON arrays/objects,
 and resolves select option **names** to IDs server-side (e.g. `--prop status=Done`).
-Property keys may be either the property's machine ID or its display name.
+Property keys may be either the property's machine ID or its display name; both
+are sent exactly as typed.
+
+`--config` (on `prop create|update`) is a JSON object merged into the property
+config, e.g. `--config '{"format":"currency","currency":"USD","decimalPlaces":2}'`.
+`--settings` (on `view create|update`) is a JSON object of view settings
+(`filters`, `sorts`, `chartSettings`, `boardSettings`, ...). Both are validated
+client-side and fail with a clear error on invalid JSON or a non-object.
 
 ## Documentation
 
