@@ -123,9 +123,11 @@ Add `--json` to any of them for machine-readable output.
 # Pages
 lh page list [-w workspace] [--parent <id|path|root>] [--json]
 lh page get <id|path> [-w workspace] [--json]
-lh page create <title> -w <workspace> [-c content | --from-file f] [--parent <id|path>]
-lh page update <id> [-t title] [-c content | --from-file f]
+lh page create <title> -w <workspace> [-c content | --from-file f] [--parent <id|path>] [--icon <emoji>]
+lh page update <id> [-t title] [--icon <emoji>] [-c content | --from-file f]
 lh page delete <id>
+# Icons: get/list show the icon before the title (`icon` in --json). --icon "" clears it.
+# A title like "🔥 Roadmap" with no --icon (page create, lh new, lh push) becomes icon 🔥 + title "Roadmap".
 
 # Databases
 lh db list [-w workspace] [--json]
