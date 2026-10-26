@@ -24,6 +24,27 @@ export function printResult<T>(
   human(data);
 }
 
+/**
+ * Render a row value for human/CSV output. Servers may send typed JSON values
+ * (numbers, booleans, null, arrays, objects) or plain strings; never throws.
+ */
+export function cellToString(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    const hasObject = value.some((v) => v !== null && typeof v === "object");
+    return hasObject ? JSON.stringify(value) : value.map(cellToString).join(",");
+  }
+  try {
+    return JSON.stringify(value) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export function printError(message: string, opts: OutputOptions = {}): void {
   if (opts.json) {
     process.stdout.write(JSON.stringify({ error: message }, null, 2) + "\n");
