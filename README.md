@@ -245,6 +245,11 @@ publish token"`), refuses if the token belongs to any other account or the
 version is already on npm, runs typecheck, tests and build, publishes, then
 tags `vX.Y.Z` and pushes `main` and the tag.
 
+The `lumifyhub` account requires 2FA to publish, so the stored token has to be
+a granular access token with "Bypass two-factor authentication" turned on and
+read/write on `lumifyhub-cli`. With any other token, pass a code:
+`NPM_OTP=123456 npm run release`.
+
 ## License
 
 MIT
