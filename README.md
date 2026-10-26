@@ -232,6 +232,19 @@ npm run dev
 npm link
 ```
 
+## Releasing
+
+```bash
+npm run release            # publish the version in package.json
+npm run release -- 0.7.0   # bump, commit "Release 0.7.0", then publish
+```
+
+The package belongs to the `lumifyhub` npm account, not `saadnvd1`. The
+script takes that account's token from tokenvault (`tv get npm "lumifyhub
+publish token"`), refuses if the token belongs to any other account or the
+version is already on npm, runs typecheck, tests and build, publishes, then
+tags `vX.Y.Z` and pushes `main` and the tag.
+
 ## License
 
 MIT
