@@ -20,6 +20,7 @@ export interface PageMeta {
 export interface Page {
   id: string;
   title: string;
+  icon?: string | null;
   /** Slug unique among siblings — half of the page's URL. */
   slug: string;
   /** Slug path from the workspace root, e.g. "business/cornerlot/development". */

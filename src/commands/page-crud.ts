@@ -9,6 +9,7 @@ import { readFileSync } from "fs";
 import { isAuthenticated } from "../lib/config.js";
 import { api, ROOT_PARENT } from "../lib/api.js";
 import { printResult, printError } from "../lib/output.js";
+import { withIcon, ICON_FLAG, ICON_UPDATE_FLAG, resolveUpdateContent } from "../lib/icon.js";
 
 interface PageListOpts {
   workspace?: string;
@@ -36,7 +37,7 @@ async function pageList(opts: PageListOpts): Promise<void> {
         for (const p of rows) {
           // The path, not the title: three pages called "Development" are
           // only told apart by which parent they sit under.
-          console.log(`${chalk.cyan(p.id)}  ${p.workspace_slug}/${p.path}  ${chalk.gray(p.title)}`);
+          console.log(`${chalk.cyan(p.id)}  ${p.workspace_slug}/${p.path}  ${chalk.gray(withIcon(p.icon) + p.title)}`);
         }
       },
       opts
@@ -61,7 +62,7 @@ async function pageGet(ref: string, opts: PageGetOpts): Promise<void> {
     printResult(
       page,
       (p) => {
-        console.log(chalk.bold(p.title));
+        console.log(chalk.bold(withIcon(p.icon) + p.title));
         console.log(chalk.gray(`${p.id}  workspace=${p.workspace_slug}  updated=${p.updated_at}`));
         console.log(chalk.gray(`path=${p.path}  parent=${p.parent_page_id ?? ROOT_PARENT}`));
         console.log();
@@ -82,6 +83,7 @@ interface PageCreateOpts {
   parent?: string;
   /** Older spelling of --parent; kept so existing scripts keep working. */
   parentId?: string;
+  icon?: string;
   json?: boolean;
 }
 
@@ -107,7 +109,7 @@ async function pageCreate(title: string, opts: PageCreateOpts): Promise<void> {
     const parentRef = opts.parent ?? opts.parentId;
     const parentId =
       parentRef === undefined ? undefined : await api.resolvePageId(parentRef, opts.workspace);
-    const page = await api.createPage(title, content, opts.workspace, parentId);
+    const page = await api.createPage(title, content, opts.workspace, parentId, opts.icon);
     printResult(
       page,
       (p) => console.log(chalk.green(`Created page ${p.id}: ${p.workspace_slug}/${p.path}`)),
@@ -120,6 +122,7 @@ async function pageCreate(title: string, opts: PageCreateOpts): Promise<void> {
 
 interface PageUpdateOpts {
   title?: string;
+  icon?: string;
   content?: string;
   fromFile?: string;
   json?: boolean;
@@ -139,21 +142,17 @@ async function pageUpdate(id: string, opts: PageUpdateOpts): Promise<void> {
       return;
     }
   }
-  if (content === undefined && opts.title === undefined) {
-    printError("Provide --content, --from-file, or --title", opts);
+  if (content === undefined && opts.title === undefined && opts.icon === undefined) {
+    printError("Provide --content, --from-file, --title, or --icon", opts);
     return;
   }
   try {
-    // updatePage requires a content string; fall back to current remote content if only title changes
-    let newContent = content;
-    if (newContent === undefined) {
-      const current = await api.getPage(id);
-      newContent = current.content;
-    }
-    const page = await api.updatePage(id, newContent, opts.title);
+    // updatePage requires a content string; fall back to current remote content if only title/icon changes
+    const newContent = await resolveUpdateContent(content, async () => (await api.getPage(id)).content);
+    const page = await api.updatePage(id, newContent, opts.title, opts.icon);
     printResult(
       page,
-      (p) => console.log(chalk.green(`Updated page ${p.id}: ${p.title}`)),
+      (p) => console.log(chalk.green(`Updated page ${p.id}: ${withIcon(p.icon)}${p.title}`)),
       opts
     );
   } catch (err) {
@@ -208,13 +207,15 @@ export function registerPageCommands(program: Command): void {
     .option("--from-file <path>", "Read content from a file")
     .option("--parent <id|path>", "Parent page (id or slug path, e.g. cornerlot)")
     .option("--parent-id <id>", "Alias of --parent (kept for older scripts)")
+    .option(...ICON_FLAG)
     .option("--json", "Output JSON")
     .action(pageCreate);
 
   page
     .command("update <id>")
-    .description("Update a page's title or content")
+    .description("Update a page's title, icon or content")
     .option("-t, --title <title>", "New title")
+    .option(...ICON_UPDATE_FLAG)
     .option("-c, --content <text>", "New content (markdown)")
     .option("--from-file <path>", "Read content from a file")
     .option("--json", "Output JSON")

@@ -1,3 +1,4 @@
+import { splitEmojiTitle, pageWriteBody } from "./icon.js";
 import { getConfig } from "./config.js";
 import { CLIENT_HEADER, USER_AGENT } from "./version.js";
 import type {
@@ -158,12 +159,14 @@ class ApiClient {
   async updatePage(
     pageId: string,
     content: string,
-    title?: string
+    title?: string,
+    icon?: string
   ): Promise<Page> {
+    const split = pageWriteBody(title, icon);
     const response = await fetch(`${this.getBaseUrl()}/pages/${pageId}`, {
       method: "PUT",
       headers: this.getHeaders(),
-      body: JSON.stringify({ content, title }),
+      body: JSON.stringify({ content, title: split.title, icon: split.icon }),
     });
 
     if (!response.ok) {
@@ -192,9 +195,14 @@ class ApiClient {
     title: string,
     content: string,
     workspaceSlug: string,
-    parentId?: string
+    parentId?: string,
+    icon?: string
   ): Promise<Page> {
-    const body: Record<string, string> = { title, content, workspace_slug: workspaceSlug };
+    const split = splitEmojiTitle(title, icon);
+    const body: Record<string, string> = { title: split.title, content, workspace_slug: workspaceSlug };
+    if (split.icon !== undefined) {
+      body.icon = split.icon;
+    }
     if (parentId) {
       body.parent_id = parentId;
     }
