@@ -254,7 +254,7 @@ export function registerRowCommands(program: Command): void {
     .description("Create a row in a database")
     .requiredOption("-t, --title <title>", "Row title")
     .option("-d, --data-source-id <id>", "Data source (defaults to first)")
-    .option("--prop <kv>", "Property key=value (repeatable)", collect, [])
+    .option("--prop <kv>", "Property key=value (repeatable). Key is a property name or ID; select values may be option names", collect, [])
     .option("--json", "Output JSON")
     .action(rowCreate);
 
@@ -263,7 +263,7 @@ export function registerRowCommands(program: Command): void {
     .description("Update a row's title / data source / properties")
     .option("-t, --title <title>", "New title")
     .option("-d, --data-source-id <id>", "Move to data source")
-    .option("--prop <kv>", "Property key=value (repeatable)", collect, [])
+    .option("--prop <kv>", "Property key=value (repeatable). Key is a property name or ID; select values may be option names", collect, [])
     .option("--json", "Output JSON")
     .action(rowUpdate);
 
