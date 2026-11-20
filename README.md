@@ -210,6 +210,18 @@ lh page create "Roadmap" -w saads-workspace --parent cornerlot
 
 `--parent-id` is still accepted on `create` as an alias of `--parent`.
 
+### Templates (admin)
+
+```bash
+lh templates list
+lh templates get <id>
+lh templates set <id> --guide-file guide.md --faq-file faq.json \
+  --industries real-estate,insurance --description "..." --preview-image-url https://...
+lh templates set <id> --public-slug my-slug   # makes the page public; '' unpublishes
+```
+
+Admin token only (other users get a 404). All commands take `--json`.
+
 ### Client header
 
 Every request carries `X-LumifyHub-Client: lh/<version>`, with the version

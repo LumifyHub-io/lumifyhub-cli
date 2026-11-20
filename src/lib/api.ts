@@ -32,6 +32,18 @@ import type {
 export const ROOT_PARENT = "root";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+export interface TemplatePublicFields {
+  id: string;
+  name?: string;
+  description?: string | null;
+  guide?: string | null;
+  faq?: { q: string; a: string }[];
+  industries?: string[];
+  preview_image_url?: string | null;
+  public_slug?: string | null;
+  [key: string]: unknown;
+}
+
 class ApiClient {
   private getHeaders(): HeadersInit {
     const config = getConfig();
@@ -721,6 +733,23 @@ class ApiClient {
 
   async deleteSource(databaseId: string, sourceId: string): Promise<DeletedResource> {
     return this.request<DeletedResource>(`/databases/${databaseId}/sources/${sourceId}`, { method: "DELETE" });
+  }
+
+  // ===== Templates (admin) =====
+
+  async getTemplates(): Promise<TemplatePublicFields[]> {
+    return this.request<TemplatePublicFields[]>("/templates");
+  }
+
+  async getTemplate(id: string): Promise<TemplatePublicFields> {
+    return this.request<TemplatePublicFields>(`/templates/${encodeURIComponent(id)}`);
+  }
+
+  async updateTemplate(id: string, payload: Partial<TemplatePublicFields>): Promise<TemplatePublicFields> {
+    return this.request<TemplatePublicFields>(`/templates/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
   }
 
   // ===== Relation Values =====
